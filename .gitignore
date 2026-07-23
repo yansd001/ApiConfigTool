@@ -1,0 +1,76 @@
+# .NET build
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+artifacts/
+out/
+TestResults/
+*.binlog
+
+# Publish output (build-exe.bat -> publish/)
+publish/
+
+# NuGet
+*.nupkg
+*.snupkg
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+project.lock.json
+project.fragment.lock.json
+
+# Visual Studio / MSBuild
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.rsuser
+*.userprefs
+*.VC.db
+*.VC.VC.opendb
+ipch/
+*.psess
+*.vsp
+*.vspx
+*.sap
+
+# Rider / ReSharper
+.idea/
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user
+
+# VS Code (keep shared settings if added)
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# OS junk
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+._*
+
+# Local secrets / env
+*.env
+.env
+.env.*
+!.env.example
+secrets.json
+appsettings.*.local.json
+appsettings.Local.json
+
+# Windows packaging leftovers
+*.Publish.xml
+*.azurePubxml
+AppPackages/
+BundleArtifacts/
+*.appx
+*.appxbundle
+*.appxupload

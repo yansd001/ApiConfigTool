@@ -1,0 +1,96 @@
+name: Build and Release
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "**.md"
+      - ".gitignore"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Determine next version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          latest="$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n 1 || true)"
+          if [[ -z "${latest}" ]]; then
+            next="0.0.1"
+          else
+            ver="${latest#v}"
+            IFS='.' read -r major minor patch <<< "${ver}"
+            next="${major}.${minor}.$((patch + 1))"
+          fi
+          echo "version=${next}" >> "${GITHUB_OUTPUT}"
+          echo "tag=v${next}" >> "${GITHUB_OUTPUT}"
+          echo "Next version: v${next}"
+
+      - name: Publish single-file exe
+        shell: pwsh
+        run: |
+          dotnet publish `
+            -c Release `
+            -r win-x64 `
+            --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:EnableCompressionInSingleFile=true `
+            -p:Version=${{ steps.version.outputs.version }} `
+            -p:AssemblyVersion=${{ steps.version.outputs.version }}.0 `
+            -p:FileVersion=${{ steps.version.outputs.version }}.0 `
+            -o publish
+
+      - name: Package artifacts
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $zipName = "ApiConfigTool-win-x64-v$version.zip"
+          if (-not (Test-Path "publish/ApiConfigTool.exe")) {
+            throw "publish/ApiConfigTool.exe not found"
+          }
+          Compress-Archive -Path "publish/ApiConfigTool.exe" -DestinationPath $zipName -Force
+          "artifact=$zipName" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+        id: package
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Release ${{ steps.version.outputs.tag }}
+          body: |
+            ## API Config Tool ${{ steps.version.outputs.tag }}
+
+            Windows desktop app (self-contained single-file, win-x64).
+
+            ### Assets
+            - `ApiConfigTool-win-x64-v${{ steps.version.outputs.version }}.zip` — recommended download
+            - `ApiConfigTool.exe` — raw executable
+
+            **Commit:** `${{ github.sha }}`
+          files: |
+            ${{ steps.package.outputs.artifact }}
+            publish/ApiConfigTool.exe
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

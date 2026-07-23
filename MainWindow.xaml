@@ -1,0 +1,329 @@
+<Window x:Class="ApiConfigTool.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="API Config Tool - Codex / Claude Code"
+        Height="720" Width="780"
+        MinHeight="640" MinWidth="700"
+        WindowStartupLocation="CenterScreen"
+        WindowState="Maximized"
+        Background="#F4F7FB"
+        FontFamily="Segoe UI, Microsoft YaHei UI">
+    <Window.Resources>
+        <SolidColorBrush x:Key="CardBg" Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="InputBg" Color="#F8FAFC"/>
+        <SolidColorBrush x:Key="BorderColor" Color="#D7E0EA"/>
+        <SolidColorBrush x:Key="Accent" Color="#2563EB"/>
+        <SolidColorBrush x:Key="Success" Color="#059669"/>
+        <SolidColorBrush x:Key="Purple" Color="#7C3AED"/>
+        <SolidColorBrush x:Key="TextPrimary" Color="#0F172A"/>
+        <SolidColorBrush x:Key="TextSecondary" Color="#64748B"/>
+
+        <Style x:Key="LabelStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource TextSecondary}"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
+        </Style>
+
+        <Style x:Key="FieldStyle" TargetType="TextBox">
+            <Setter Property="Background" Value="{StaticResource InputBg}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderColor}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="12,10"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="CaretBrush" Value="{StaticResource TextPrimary}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8"
+                                Padding="{TemplateBinding Padding}">
+                            <ScrollViewer x:Name="PART_ContentHost"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="PasswordFieldStyle" TargetType="PasswordBox">
+            <Setter Property="Background" Value="{StaticResource InputBg}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderColor}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="12,10"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="CaretBrush" Value="{StaticResource TextPrimary}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="PasswordBox">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8"
+                                Padding="{TemplateBinding Padding}">
+                            <ScrollViewer x:Name="PART_ContentHost"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ComboStyle" TargetType="ComboBox">
+            <Setter Property="Background" Value="{StaticResource InputBg}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderColor}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="IsEditable" Value="True"/>
+        </Style>
+
+        <Style x:Key="PrimaryButton" TargetType="Button">
+            <Setter Property="Background" Value="{StaticResource Accent}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="16,12"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Opacity" Value="0.9"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="bd" Property="Opacity" Value="0.5"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SuccessButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+            <Setter Property="Background" Value="{StaticResource Success}"/>
+        </Style>
+
+        <Style x:Key="PurpleButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+            <Setter Property="Background" Value="{StaticResource Purple}"/>
+        </Style>
+
+        <Style x:Key="GhostButton" TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+            <Setter Property="Background" Value="#EEF4FF"/>
+            <Setter Property="Foreground" Value="#1D4ED8"/>
+            <Setter Property="BorderBrush" Value="#BFDBFE"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#DBEAFE"/>
+                                <Setter TargetName="bd" Property="BorderBrush" Value="#93C5FD"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="bd" Property="Opacity" Value="0.5"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="TabControl">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+        </Style>
+
+        <Style TargetType="TabItem">
+            <Setter Property="Foreground" Value="#64748B"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="18,10"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border x:Name="tabBorder"
+                                Background="#EEF2F7"
+                                CornerRadius="10,10,0,0"
+                                Margin="0,0,8,0"
+                                Padding="{TemplateBinding Padding}"
+                                BorderBrush="#D7E0EA"
+                                BorderThickness="1,1,1,0">
+                            <ContentPresenter x:Name="header"
+                                              ContentSource="Header"
+                                              HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              TextBlock.Foreground="#64748B"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="tabBorder" Property="Background" Value="#FFFFFF"/>
+                                <Setter TargetName="tabBorder" Property="BorderBrush" Value="#BFDBFE"/>
+                                <Setter TargetName="header" Property="TextBlock.Foreground" Value="#1D4ED8"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="tabBorder" Property="Background" Value="#E8EEF6"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="28">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,16">
+            <TextBlock Text="API 配置工具" FontSize="26" FontWeight="Bold" Foreground="{StaticResource TextPrimary}"/>
+            <TextBlock Text="分别配置 Codex 与 Claude Code 的第三方 API（Base URL / API Key / 模型）"
+                       FontSize="13" Foreground="{StaticResource TextSecondary}" Margin="0,6,0,0" TextWrapping="Wrap"/>
+        </StackPanel>
+
+        <Grid Grid.Row="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <TabControl x:Name="MainTabs" Grid.Row="0">
+                <TabItem Header="Codex" x:Name="CodexTab">
+                    <Border Background="{StaticResource CardBg}" CornerRadius="0,12,12,12" Padding="20" BorderBrush="{StaticResource BorderColor}" BorderThickness="1,0,1,1">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <StackPanel>
+                                <TextBlock x:Name="CodexPathHint" TextWrapping="Wrap" FontSize="12"
+                                           Foreground="{StaticResource TextSecondary}" Margin="0,0,0,14"/>
+
+                                <TextBlock Text="Base URL" Style="{StaticResource LabelStyle}"/>
+                                <TextBox x:Name="CodexBaseUrlBox" Style="{StaticResource FieldStyle}" Text="https://api.example.com/v1"/>
+
+                                <Grid Margin="0,14,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="API Key" Style="{StaticResource LabelStyle}"/>
+                                        <PasswordBox x:Name="CodexApiKeyBox" Style="{StaticResource PasswordFieldStyle}"/>
+                                    </StackPanel>
+                                    <CheckBox x:Name="CodexShowKeyCheck" Grid.Column="1" Content="显示"
+                                              VerticalAlignment="Bottom" Margin="12,0,0,10"
+                                              Foreground="{StaticResource TextSecondary}"
+                                              Checked="CodexShowKeyCheck_Changed" Unchecked="CodexShowKeyCheck_Changed"/>
+                                </Grid>
+                                <TextBox x:Name="CodexApiKeyPlainBox" Style="{StaticResource FieldStyle}" Visibility="Collapsed"/>
+
+                                <Grid Margin="0,14,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                                        <TextBlock Text="模型名称" Style="{StaticResource LabelStyle}"/>
+                                        <ComboBox x:Name="CodexModelCombo" Style="{StaticResource ComboStyle}" IsEditable="True" IsTextSearchEnabled="True"/>
+                                    </StackPanel>
+                                    <Button x:Name="CodexFetchModelsButton" Grid.Column="1" Content="获取模型列表"
+                                            Style="{StaticResource PrimaryButton}" VerticalAlignment="Bottom"
+                                            MinWidth="130" Click="CodexFetchModelsButton_Click"/>
+                                </Grid>
+
+                                <UniformGrid Columns="2" Margin="0,20,0,0">
+                                    <Button Content="从现有配置加载" Style="{StaticResource GhostButton}" Margin="0,0,8,0" Click="CodexLoadButton_Click"/>
+                                    <Button Content="保存到 Codex" Style="{StaticResource SuccessButton}" Margin="8,0,0,0" Click="CodexApplyButton_Click"/>
+                                </UniformGrid>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Border>
+                </TabItem>
+
+                <TabItem Header="Claude Code" x:Name="ClaudeTab">
+                    <Border Background="{StaticResource CardBg}" CornerRadius="0,12,12,12" Padding="20" BorderBrush="{StaticResource BorderColor}" BorderThickness="1,0,1,1">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <StackPanel>
+                                <TextBlock x:Name="ClaudePathHint" TextWrapping="Wrap" FontSize="12"
+                                           Foreground="{StaticResource TextSecondary}" Margin="0,0,0,14"/>
+
+                                <TextBlock Text="Base URL" Style="{StaticResource LabelStyle}"/>
+                                <TextBox x:Name="ClaudeBaseUrlBox" Style="{StaticResource FieldStyle}" Text="https://api.example.com"/>
+
+                                <Grid Margin="0,14,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="API Key" Style="{StaticResource LabelStyle}"/>
+                                        <PasswordBox x:Name="ClaudeApiKeyBox" Style="{StaticResource PasswordFieldStyle}"/>
+                                    </StackPanel>
+                                    <CheckBox x:Name="ClaudeShowKeyCheck" Grid.Column="1" Content="显示"
+                                              VerticalAlignment="Bottom" Margin="12,0,0,10"
+                                              Foreground="{StaticResource TextSecondary}"
+                                              Checked="ClaudeShowKeyCheck_Changed" Unchecked="ClaudeShowKeyCheck_Changed"/>
+                                </Grid>
+                                <TextBox x:Name="ClaudeApiKeyPlainBox" Style="{StaticResource FieldStyle}" Visibility="Collapsed"/>
+
+                                <Grid Margin="0,14,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                                        <TextBlock Text="模型名称" Style="{StaticResource LabelStyle}"/>
+                                        <ComboBox x:Name="ClaudeModelCombo" Style="{StaticResource ComboStyle}" IsEditable="True" IsTextSearchEnabled="True"/>
+                                    </StackPanel>
+                                    <Button x:Name="ClaudeFetchModelsButton" Grid.Column="1" Content="获取模型列表"
+                                            Style="{StaticResource PrimaryButton}" VerticalAlignment="Bottom"
+                                            MinWidth="130" Click="ClaudeFetchModelsButton_Click"/>
+                                </Grid>
+
+                                <UniformGrid Columns="2" Margin="0,20,0,0">
+                                    <Button Content="从现有配置加载" Style="{StaticResource GhostButton}" Margin="0,0,8,0" Click="ClaudeLoadButton_Click"/>
+                                    <Button Content="保存到 Claude Code" Style="{StaticResource PurpleButton}" Margin="8,0,0,0" Click="ClaudeApplyButton_Click"/>
+                                </UniformGrid>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Border>
+                </TabItem>
+            </TabControl>
+
+            <Border Grid.Row="1" Background="{StaticResource CardBg}" CornerRadius="12" Padding="16" Margin="0,14,0,0">
+                <StackPanel>
+                    <TextBlock Text="运行日志" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource TextPrimary}" Margin="0,0,0,8"/>
+                    <TextBox x:Name="LogBox" IsReadOnly="True" TextWrapping="Wrap"
+                             AcceptsReturn="True" VerticalScrollBarVisibility="Auto"
+                             MinHeight="100" MaxHeight="140"
+                             Background="{StaticResource InputBg}"
+                             Foreground="#334155"
+                             BorderBrush="{StaticResource BorderColor}"
+                             BorderThickness="1" Padding="12" FontSize="12"
+                             FontFamily="Consolas, Cascadia Mono, Microsoft YaHei UI"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <TextBlock Grid.Row="2" Margin="0,12,0,0" FontSize="11" Foreground="#64748B"
+                   Text="提示：每个标签页独立配置。配置文件已存在时仅替换 base_url / api_key / model，其余字段保持不变。"/>
+    </Grid>
+</Window>
