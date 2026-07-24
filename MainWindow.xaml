@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="API Config Tool - Codex / Claude Code"
         Height="720" Width="780"
-        MinHeight="640" MinWidth="700"
+        MinHeight="520" MinWidth="400"
         WindowStartupLocation="CenterScreen"
         WindowState="Maximized"
         Background="#F4F7FB"
@@ -149,6 +149,8 @@
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Padding" Value="0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="VerticalContentAlignment" Value="Stretch"/>
         </Style>
 
         <Style TargetType="TabItem">
@@ -157,6 +159,8 @@
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Padding" Value="18,10"/>
             <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="VerticalContentAlignment" Value="Stretch"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="TabItem">
@@ -189,7 +193,7 @@
         </Style>
     </Window.Resources>
 
-    <Grid Margin="28">
+    <Grid x:Name="MainLayout" Margin="28">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
@@ -226,21 +230,27 @@
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0">
                                         <TextBlock Text="API Key" Style="{StaticResource LabelStyle}"/>
-                                        <PasswordBox x:Name="CodexApiKeyBox" Style="{StaticResource PasswordFieldStyle}"/>
+                                        <Grid>
+                                            <PasswordBox x:Name="CodexApiKeyBox" Style="{StaticResource PasswordFieldStyle}"/>
+                                            <TextBox x:Name="CodexApiKeyPlainBox" Style="{StaticResource FieldStyle}" Visibility="Collapsed"/>
+                                        </Grid>
                                     </StackPanel>
                                     <CheckBox x:Name="CodexShowKeyCheck" Grid.Column="1" Content="显示"
                                               VerticalAlignment="Bottom" Margin="12,0,0,10"
                                               Foreground="{StaticResource TextSecondary}"
                                               Checked="CodexShowKeyCheck_Changed" Unchecked="CodexShowKeyCheck_Changed"/>
                                 </Grid>
-                                <TextBox x:Name="CodexApiKeyPlainBox" Style="{StaticResource FieldStyle}" Visibility="Collapsed"/>
 
-                                <Grid Margin="0,14,0,0">
+                                <Grid x:Name="CodexModelRow" Margin="0,14,0,0">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition x:Name="CodexFetchColumn" Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                                    <StackPanel x:Name="CodexModelField" Grid.Column="0" Margin="0,0,12,0">
                                         <TextBlock Text="模型名称" Style="{StaticResource LabelStyle}"/>
                                         <ComboBox x:Name="CodexModelCombo" Style="{StaticResource ComboStyle}" IsEditable="True" IsTextSearchEnabled="True"/>
                                     </StackPanel>
@@ -249,10 +259,18 @@
                                             MinWidth="130" Click="CodexFetchModelsButton_Click"/>
                                 </Grid>
 
-                                <UniformGrid Columns="2" Margin="0,20,0,0">
-                                    <Button Content="从现有配置加载" Style="{StaticResource GhostButton}" Margin="0,0,8,0" Click="CodexLoadButton_Click"/>
-                                    <Button Content="保存到 Codex" Style="{StaticResource SuccessButton}" Margin="8,0,0,0" Click="CodexApplyButton_Click"/>
-                                </UniformGrid>
+                                <Grid x:Name="CodexActionRow" Margin="0,20,0,0">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition x:Name="CodexSecondActionColumn" Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Button x:Name="CodexLoadButton" Content="从现有配置加载" Style="{StaticResource GhostButton}" Margin="0,0,8,0" Click="CodexLoadButton_Click"/>
+                                    <Button x:Name="CodexApplyButton" Grid.Column="1" Content="保存到 Codex" Style="{StaticResource SuccessButton}" Margin="8,0,0,0" Click="CodexApplyButton_Click"/>
+                                </Grid>
                             </StackPanel>
                         </ScrollViewer>
                     </Border>
@@ -275,21 +293,27 @@
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0">
                                         <TextBlock Text="API Key" Style="{StaticResource LabelStyle}"/>
-                                        <PasswordBox x:Name="ClaudeApiKeyBox" Style="{StaticResource PasswordFieldStyle}"/>
+                                        <Grid>
+                                            <PasswordBox x:Name="ClaudeApiKeyBox" Style="{StaticResource PasswordFieldStyle}"/>
+                                            <TextBox x:Name="ClaudeApiKeyPlainBox" Style="{StaticResource FieldStyle}" Visibility="Collapsed"/>
+                                        </Grid>
                                     </StackPanel>
                                     <CheckBox x:Name="ClaudeShowKeyCheck" Grid.Column="1" Content="显示"
                                               VerticalAlignment="Bottom" Margin="12,0,0,10"
                                               Foreground="{StaticResource TextSecondary}"
                                               Checked="ClaudeShowKeyCheck_Changed" Unchecked="ClaudeShowKeyCheck_Changed"/>
                                 </Grid>
-                                <TextBox x:Name="ClaudeApiKeyPlainBox" Style="{StaticResource FieldStyle}" Visibility="Collapsed"/>
 
-                                <Grid Margin="0,14,0,0">
+                                <Grid x:Name="ClaudeModelRow" Margin="0,14,0,0">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition x:Name="ClaudeFetchColumn" Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                                    <StackPanel x:Name="ClaudeModelField" Grid.Column="0" Margin="0,0,12,0">
                                         <TextBlock Text="模型名称" Style="{StaticResource LabelStyle}"/>
                                         <ComboBox x:Name="ClaudeModelCombo" Style="{StaticResource ComboStyle}" IsEditable="True" IsTextSearchEnabled="True"/>
                                     </StackPanel>
@@ -298,10 +322,18 @@
                                             MinWidth="130" Click="ClaudeFetchModelsButton_Click"/>
                                 </Grid>
 
-                                <UniformGrid Columns="2" Margin="0,20,0,0">
-                                    <Button Content="从现有配置加载" Style="{StaticResource GhostButton}" Margin="0,0,8,0" Click="ClaudeLoadButton_Click"/>
-                                    <Button Content="保存到 Claude Code" Style="{StaticResource PurpleButton}" Margin="8,0,0,0" Click="ClaudeApplyButton_Click"/>
-                                </UniformGrid>
+                                <Grid x:Name="ClaudeActionRow" Margin="0,20,0,0">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition x:Name="ClaudeSecondActionColumn" Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Button x:Name="ClaudeLoadButton" Content="从现有配置加载" Style="{StaticResource GhostButton}" Margin="0,0,8,0" Click="ClaudeLoadButton_Click"/>
+                                    <Button x:Name="ClaudeApplyButton" Grid.Column="1" Content="保存到 Claude Code" Style="{StaticResource PurpleButton}" Margin="8,0,0,0" Click="ClaudeApplyButton_Click"/>
+                                </Grid>
                             </StackPanel>
                         </ScrollViewer>
                     </Border>
@@ -323,7 +355,7 @@
             </Border>
         </Grid>
 
-        <TextBlock Grid.Row="2" Margin="0,12,0,0" FontSize="11" Foreground="#64748B"
+        <TextBlock Grid.Row="2" Margin="0,12,0,0" FontSize="11" Foreground="#64748B" TextWrapping="Wrap"
                    Text="提示：每个标签页独立配置。配置文件已存在时仅替换 base_url / api_key / model，其余字段保持不变。"/>
     </Grid>
 </Window>

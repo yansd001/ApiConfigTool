@@ -7,21 +7,73 @@ namespace ApiConfigTool;
 
 public partial class MainWindow : Window
 {
+    private const double CompactLayoutBreakpoint = 620;
+
     private readonly ModelsApiService _modelsApi = new();
     private readonly CodexConfigService _codex = new();
     private readonly ClaudeConfigService _claude = new();
+    private bool? _isCompactLayout;
 
     public MainWindow()
     {
         InitializeComponent();
+        SizeChanged += MainWindow_SizeChanged;
         CodexPathHint.Text = $"配置路径：{_codex.ConfigPath}\n认证路径：{_codex.AuthPath}";
         ClaudePathHint.Text = $"配置路径：{_claude.SettingsPath}";
         Loaded += (_, _) =>
         {
+            ApplyResponsiveLayout();
             LoadCodexExisting(quiet: true);
             LoadClaudeExisting(quiet: true);
             AppendLog("就绪。请在标签页中分别配置 Codex 或 Claude Code。");
         };
+    }
+
+    private void MainWindow_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        ApplyResponsiveLayout();
+    }
+
+    private void ApplyResponsiveLayout()
+    {
+        var compact = ActualWidth < CompactLayoutBreakpoint;
+        if (_isCompactLayout == compact)
+            return;
+
+        _isCompactLayout = compact;
+        MainLayout.Margin = compact ? new Thickness(16) : new Thickness(28);
+
+        ConfigureModelRow(CodexFetchColumn, CodexModelField, CodexFetchModelsButton, compact);
+        ConfigureModelRow(ClaudeFetchColumn, ClaudeModelField, ClaudeFetchModelsButton, compact);
+        ConfigureActionRow(CodexSecondActionColumn, CodexLoadButton, CodexApplyButton, compact);
+        ConfigureActionRow(ClaudeSecondActionColumn, ClaudeLoadButton, ClaudeApplyButton, compact);
+    }
+
+    private static void ConfigureModelRow(
+        ColumnDefinition fetchColumn,
+        FrameworkElement modelField,
+        Button fetchButton,
+        bool compact)
+    {
+        fetchColumn.Width = compact ? new GridLength(0) : GridLength.Auto;
+        modelField.Margin = compact ? new Thickness(0) : new Thickness(0, 0, 12, 0);
+        Grid.SetColumn(fetchButton, compact ? 0 : 1);
+        Grid.SetRow(fetchButton, compact ? 1 : 0);
+        fetchButton.Margin = compact ? new Thickness(0, 10, 0, 0) : new Thickness(0);
+        fetchButton.HorizontalAlignment = HorizontalAlignment.Stretch;
+    }
+
+    private static void ConfigureActionRow(
+        ColumnDefinition secondColumn,
+        Button firstButton,
+        Button secondButton,
+        bool compact)
+    {
+        secondColumn.Width = compact ? new GridLength(0) : new GridLength(1, GridUnitType.Star);
+        Grid.SetColumn(secondButton, compact ? 0 : 1);
+        Grid.SetRow(secondButton, compact ? 1 : 0);
+        firstButton.Margin = compact ? new Thickness(0) : new Thickness(0, 0, 8, 0);
+        secondButton.Margin = compact ? new Thickness(0, 10, 0, 0) : new Thickness(8, 0, 0, 0);
     }
 
     private void CodexShowKeyCheck_Changed(object sender, RoutedEventArgs e)
