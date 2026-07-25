@@ -2,6 +2,19 @@
 
 Windows desktop app. Double-click `ApiConfigTool.exe` to use.
 
+For macOS and Linux, use the interactive shell version:
+
+```sh
+chmod +x api-config-tool.sh
+./api-config-tool.sh
+```
+
+The shell version requires either Python 3.8+ or Node.js 16+. When Python is
+available it fetches an interactive model list; otherwise the model name is
+entered manually. The script preserves unrelated settings and creates timestamped
+backups before changing existing files. It also honors `CODEX_HOME` and
+`CLAUDE_CONFIG_DIR` when those environment variables are set.
+
 ## Features
 
 - Input Base URL, API Key, model name
