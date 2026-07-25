@@ -67,6 +67,9 @@ jobs:
           if (-not (Test-Path "publish/ApiConfigTool.exe")) {
             throw "publish/ApiConfigTool.exe not found"
           }
+          if (-not (Test-Path "api-config-tool.sh")) {
+            throw "api-config-tool.sh not found"
+          }
           Compress-Archive -Path "publish/ApiConfigTool.exe" -DestinationPath $zipName -Force
           "artifact=$zipName" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
         id: package
@@ -79,16 +82,18 @@ jobs:
           body: |
             ## API Config Tool ${{ steps.version.outputs.tag }}
 
-            Windows desktop app (self-contained single-file, win-x64).
+            Codex / Claude Code 第三方 API 配置工具。
 
-            ### Assets
-            - `ApiConfigTool-win-x64-v${{ steps.version.outputs.version }}.zip` — recommended download
-            - `ApiConfigTool.exe` — raw executable
+            ### 下载文件
+            - `ApiConfigTool-win-x64-v${{ steps.version.outputs.version }}.zip` — Windows 推荐下载
+            - `ApiConfigTool.exe` — Windows 单文件程序
+            - `api-config-tool.sh` — macOS / Linux 交互式终端脚本
 
-            **Commit:** `${{ github.sha }}`
+            **提交：** `${{ github.sha }}`
           files: |
             ${{ steps.package.outputs.artifact }}
             publish/ApiConfigTool.exe
+            api-config-tool.sh
           draft: false
           prerelease: false
           generate_release_notes: true
