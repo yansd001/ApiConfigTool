@@ -13,7 +13,6 @@ WORK_DIR=
 MODELS_TXT=
 
 cleanup() {
-    stty echo 2>/dev/null || true
     if [ -n "${WORK_DIR:-}" ] && [ -d "$WORK_DIR" ]; then
         rm -f "$WORK_DIR/models.txt"
         rmdir "$WORK_DIR" 2>/dev/null || true
@@ -1049,24 +1048,14 @@ prompt_value() {
     fi
 }
 
-prompt_secret() {
+prompt_api_key() {
     PROMPT_HAS_CURRENT=$1
     if [ "$PROMPT_HAS_CURRENT" = "yes" ]; then
         printf 'API Key [直接回车保留现有值]: '
     else
         printf 'API Key: '
     fi
-    if [ -t 0 ]; then
-        stty -echo
-        IFS= read -r REPLY || {
-            stty echo
-            exit 0
-        }
-        stty echo
-        printf '\n'
-    else
-        IFS= read -r REPLY || exit 0
-    fi
+    IFS= read -r REPLY || exit 0
 }
 
 ask_yes_no() {
@@ -1189,14 +1178,14 @@ configure_target() {
 
     while :; do
         if [ -n "$CURRENT_API_KEY" ]; then
-            prompt_secret yes
+            prompt_api_key yes
             if [ -z "$REPLY" ]; then
                 API_KEY=$CURRENT_API_KEY
             else
                 API_KEY=$REPLY
             fi
         else
-            prompt_secret no
+            prompt_api_key no
             API_KEY=$REPLY
         fi
         if [ -n "$API_KEY" ]; then
