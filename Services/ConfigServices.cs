@@ -270,6 +270,8 @@ public sealed class CodexConfigService
 
     private static string ApplySurgicalTomlUpdates(string text, string model, string baseUrl, string providerName)
     {
+        text = RemoveLegacyCodexSettings(text);
+
         // Update top-level model = "..."
         var modelPattern = new Regex("^(\\s*model\\s*=\\s*)\"([^\"]*)\"", RegexOptions.Multiline);
         if (modelPattern.IsMatch(text))
@@ -306,6 +308,8 @@ public sealed class CodexConfigService
 
         if (!baseUrlUpdated)
         {
+            text = EnsureProviderAuthRequirement(text, providerName);
+
             var append = new StringBuilder();
             append.AppendLine();
             append.AppendLine();
@@ -316,8 +320,98 @@ public sealed class CodexConfigService
             append.AppendLine("requires_openai_auth = true");
             text = text.TrimEnd() + append.ToString();
         }
+        else
+        {
+            text = EnsureProviderAuthRequirement(text, providerName);
+        }
 
         return text;
+    }
+
+    private static string RemoveLegacyCodexSettings(string text)
+    {
+        var newline = text.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
+        var lines = text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n').ToList();
+        var inSection = false;
+
+        for (var index = 0; index < lines.Count; index++)
+        {
+            var trimmed = lines[index].Trim();
+            if (trimmed.StartsWith("[", StringComparison.Ordinal) && trimmed.EndsWith("]", StringComparison.Ordinal))
+            {
+                inSection = true;
+                continue;
+            }
+
+            if (!inSection && Regex.IsMatch(lines[index], @"^\s*(?:preferred_auth_method|personality)\s*=", RegexOptions.CultureInvariant))
+            {
+                lines.RemoveAt(index);
+                index--;
+            }
+        }
+
+        return string.Join(newline, lines);
+    }
+
+    private static string EnsureProviderAuthRequirement(string text, string providerName)
+    {
+        var newline = text.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
+        var lines = text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n').ToList();
+        var headerPattern = new Regex(
+            @"^\s*\[model_providers\." + Regex.Escape(providerName) + @"\]\s*(?:#.*)?$",
+            RegexOptions.CultureInvariant);
+        var start = lines.FindIndex(line => headerPattern.IsMatch(line));
+        if (start < 0)
+            return text;
+
+        var end = lines.Count;
+        for (var index = start + 1; index < lines.Count; index++)
+        {
+            var trimmed = lines[index].Trim();
+            if (trimmed.StartsWith("[", StringComparison.Ordinal) && trimmed.EndsWith("]", StringComparison.Ordinal))
+            {
+                end = index;
+                break;
+            }
+        }
+
+        var wireIndex = -1;
+        for (var index = start + 1; index < end; index++)
+        {
+            if (Regex.IsMatch(lines[index], @"^\s*wire_api\s*=", RegexOptions.CultureInvariant))
+            {
+                wireIndex = index;
+                break;
+            }
+        }
+
+        for (var index = end - 1; index > start; index--)
+        {
+            if (!Regex.IsMatch(lines[index], @"^\s*requires_openai_auth\s*=", RegexOptions.CultureInvariant))
+                continue;
+
+            lines.RemoveAt(index);
+            end--;
+            if (wireIndex > index)
+                wireIndex--;
+        }
+
+        if (wireIndex < 0)
+        {
+            var insertAt = end;
+            while (insertAt > start + 1 && string.IsNullOrWhiteSpace(lines[insertAt - 1]))
+                insertAt--;
+
+            lines.Insert(insertAt++, "wire_api = \"responses\"");
+            lines.Insert(insertAt, "requires_openai_auth = true");
+        }
+        else
+        {
+            var indentation = Regex.Match(lines[wireIndex], @"^\s*").Value;
+            lines.Insert(wireIndex + 1, indentation + "requires_openai_auth = true");
+        }
+
+        return string.Join(newline, lines);
     }
 
     private void WriteAuth(string apiKey)

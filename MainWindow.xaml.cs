@@ -113,7 +113,7 @@ public partial class MainWindow : Window
             _codex.Apply(baseUrl, apiKey, model);
             CodexBaseUrlBox.Text = normalized;
             AppendLog(existed
-                ? $"已更新 Codex 配置（仅替换 base_url / model / api_key）\n  base_url => {normalized}\n  config: {_codex.ConfigPath}\n  auth: {_codex.AuthPath}"
+                ? $"已更新 Codex 配置（含旧认证字段迁移）\n  base_url => {normalized}\n  config: {_codex.ConfigPath}\n  auth: {_codex.AuthPath}"
                 : $"已创建 Codex 配置\n  base_url => {normalized}\n  config: {_codex.ConfigPath}\n  auth: {_codex.AuthPath}");
             MessageBox.Show("Codex 配置已写入成功。", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
         }

@@ -182,6 +182,47 @@ def replace_assignment_value(line, new_value):
     return body[:equals + 1] + leading + new_value + spacing + comment + newline
 
 
+def remove_legacy_codex_settings(lines):
+    in_section = False
+    result = []
+    for line in lines:
+        header = section_header(line)
+        if header is not None:
+            in_section = True
+        if not in_section and assignment_key(line) in ("preferred_auth_method", "personality"):
+            continue
+        result.append(line)
+    return result
+
+
+def ensure_provider_auth_requirement(lines, start, end, newline):
+    wire_index = None
+    for index in range(start + 1, end):
+        if assignment_key(lines[index]) == "wire_api":
+            wire_index = index
+            break
+
+    for index in range(end - 1, start, -1):
+        if assignment_key(lines[index]) != "requires_openai_auth":
+            continue
+        del lines[index]
+        end -= 1
+        if wire_index is not None and wire_index > index:
+            wire_index -= 1
+
+    if wire_index is None:
+        insert_at = end
+        while insert_at > start + 1 and not lines[insert_at - 1].strip():
+            insert_at -= 1
+        lines[insert_at:insert_at] = [
+            "wire_api = \"responses\"" + newline,
+            "requires_openai_auth = true" + newline,
+        ]
+    else:
+        indentation = re.match(r"^\s*", lines[wire_index]).group(0)
+        lines.insert(wire_index + 1, indentation + "requires_openai_auth = true" + newline)
+
+
 def read_top_level_strings(text):
     values = {}
     section = None
@@ -317,7 +358,7 @@ def update_codex_text(text, model, base_url):
     newline = "\r\n" if "\r\n" in text else "\n"
     top = read_top_level_strings(text)
     provider = top.get("model_provider", "OpenAI").strip() or "OpenAI"
-    lines = text.splitlines(True)
+    lines = remove_legacy_codex_settings(text.splitlines(True))
 
     section = None
     model_index = None
@@ -369,6 +410,8 @@ def update_codex_text(text, model, base_url):
             if target_end > 0 and not lines[target_end - 1].endswith(("\n", "\r")):
                 lines[target_end - 1] += newline
             lines.insert(target_end, "base_url = " + toml_quote(base_url) + newline)
+            target_end += 1
+        ensure_provider_auth_requirement(lines, target_start, target_end, newline)
     else:
         if lines and not lines[-1].endswith(("\n", "\r")):
             lines[-1] += newline
@@ -740,6 +783,41 @@ function replaceAssignmentValue(line, newValue) {
     return line.slice(0, equals + 1) + leading + newValue + spacing + comment;
 }
 
+function removeLegacyCodexSettings(lines) {
+    let inSection = false;
+    return lines.filter(line => {
+        const header = sectionHeader(line);
+        if (header !== null) inSection = true;
+        return inSection || !['preferred_auth_method', 'personality'].includes(assignmentKey(line));
+    });
+}
+
+function ensureProviderAuthRequirement(lines, start, end) {
+    let wireIndex = -1;
+    for (let index = start + 1; index < end; index += 1) {
+        if (assignmentKey(lines[index]) === 'wire_api') {
+            wireIndex = index;
+            break;
+        }
+    }
+
+    for (let index = end - 1; index > start; index -= 1) {
+        if (assignmentKey(lines[index]) !== 'requires_openai_auth') continue;
+        lines.splice(index, 1);
+        end -= 1;
+        if (wireIndex > index) wireIndex -= 1;
+    }
+
+    if (wireIndex < 0) {
+        let insertAt = end;
+        while (insertAt > start + 1 && !lines[insertAt - 1].trim()) insertAt -= 1;
+        lines.splice(insertAt, 0, 'wire_api = "responses"', 'requires_openai_auth = true');
+    } else {
+        const indentation = (lines[wireIndex].match(/^\s*/) || [''])[0];
+        lines.splice(wireIndex + 1, 0, indentation + 'requires_openai_auth = true');
+    }
+}
+
 function topLevelStrings(text) {
     const values = {};
     let section = null;
@@ -806,7 +884,7 @@ function updateCodexText(text, model, baseUrl) {
     const newline = text.includes('\r\n') ? '\r\n' : '\n';
     const top = topLevelStrings(text);
     const provider = (top.model_provider || 'OpenAI').trim() || 'OpenAI';
-    let lines = text ? text.replace(/\r\n/g, '\n').split('\n') : [];
+    let lines = removeLegacyCodexSettings(text ? text.replace(/\r\n/g, '\n').split('\n') : []);
     if (lines.length && lines[lines.length - 1] === '') lines.pop();
 
     let section = null;
@@ -840,7 +918,11 @@ function updateCodexText(text, model, baseUrl) {
             if (assignmentKey(lines[index]) === 'base_url') { baseIndex = index; break; }
         }
         if (baseIndex >= 0) lines[baseIndex] = replaceAssignmentValue(lines[baseIndex], tomlQuote(baseUrl));
-        else lines.splice(targetEnd, 0, 'base_url = ' + tomlQuote(baseUrl));
+        else {
+            lines.splice(targetEnd, 0, 'base_url = ' + tomlQuote(baseUrl));
+            targetEnd += 1;
+        }
+        ensureProviderAuthRequirement(lines, targetStart, targetEnd);
     } else {
         if (lines.length && lines[lines.length - 1].trim()) lines.push('');
         const providerKey = /^[A-Za-z0-9_-]+$/.test(provider) ? provider : tomlQuote(provider);
