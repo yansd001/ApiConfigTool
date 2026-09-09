@@ -13,6 +13,7 @@
 - 从兼容 OpenAI 的 `GET /v1/models` 接口获取模型列表
 - 自动读取本机已有配置
 - 配置存在时修改 API 地址、密钥和模型，保留其他字段，并自动迁移旧版 Codex 认证字段
+- Codex 支持在 API 配置和 GPT 账号登录之间切换，分别保存并恢复两套 `config.toml` / `auth.json`
 - 配置不存在时根据默认模板创建
 - 自动规范化 API 地址
 
@@ -25,11 +26,15 @@
 
 双击 `ApiConfigTool.exe`，选择 Codex 或 Claude Code 标签页，填写配置后保存即可。
 
+在 Codex 标签页中，可以使用“切换到 GPT 账号”和“切换到 API 配置”按钮切换登录方式。首次切换到 GPT 账号且不存在 GPT 备份时，程序会移除当前 API provider 和 API Key；请随后使用 Codex 自带流程登录账号。之后切回 API 配置会自动恢复 API 备份。
+
 Windows 版本会修改以下文件：
 
 - Codex
   - `%USERPROFILE%\.codex\config.toml`
   - `%USERPROFILE%\.codex\auth.json`
+  - `%USERPROFILE%\.codex\apiconfig_backup_api.json`
+  - `%USERPROFILE%\.codex\apiconfig_backup_gpt.json`
 - Claude Code
   - `%USERPROFILE%\.claude\settings.json`
 

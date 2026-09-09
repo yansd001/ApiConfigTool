@@ -10,6 +10,12 @@ using Tomlyn.Model;
 
 namespace ApiConfigTool.Services;
 
+public enum CodexConfigurationMode
+{
+    GptAccount,
+    ApiConfiguration
+}
+
 public sealed class ModelsApiService
 {
     private static readonly HttpClient Http = new()
@@ -138,19 +144,88 @@ public sealed class ModelsApiService
 
 public sealed class CodexConfigService
 {
+    private static readonly JsonSerializerOptions IndentedJson = new() { WriteIndented = true };
+
+    private sealed record ConfigurationBackup(string? ConfigToml, JsonNode? Auth, bool HasConfigValue, bool HasAuthValue);
+
     private readonly string _codexDir;
     private readonly string _configPath;
     private readonly string _authPath;
+    private readonly string _apiBackupPath;
+    private readonly string _gptBackupPath;
 
     public CodexConfigService(string? codexDir = null)
     {
         _codexDir = codexDir ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".codex");
         _configPath = Path.Combine(_codexDir, "config.toml");
         _authPath = Path.Combine(_codexDir, "auth.json");
+        _apiBackupPath = Path.Combine(_codexDir, "apiconfig_backup_api.json");
+        _gptBackupPath = Path.Combine(_codexDir, "apiconfig_backup_gpt.json");
     }
 
     public string ConfigPath => _configPath;
     public string AuthPath => _authPath;
+    public string ApiBackupPath => _apiBackupPath;
+    public string GptBackupPath => _gptBackupPath;
+
+    public CodexConfigurationMode GetCurrentMode()
+    {
+        if (!File.Exists(_configPath))
+            return CodexConfigurationMode.GptAccount;
+
+        var text = File.ReadAllText(_configPath);
+        return TryGetModelProvider(text, out var providerName) &&
+               ContainsModelProviderSection(text, providerName!)
+            ? CodexConfigurationMode.ApiConfiguration
+            : CodexConfigurationMode.GptAccount;
+    }
+
+    public void SwitchToGptAccount()
+    {
+        if (GetCurrentMode() == CodexConfigurationMode.GptAccount)
+            return;
+
+        var gptBackup = ReadBackup(_gptBackupPath);
+        if (File.Exists(_gptBackupPath) && !gptBackup.HasConfigValue)
+            throw new InvalidDataException($"GPT 配置备份缺少 config 字段：{_gptBackupPath}");
+
+        var currentConfig = File.Exists(_configPath) ? File.ReadAllText(_configPath) : null;
+        var currentAuth = ReadJsonNode(_authPath);
+        WriteBackup(_apiBackupPath, currentConfig, currentAuth);
+
+        var configForGpt = gptBackup.HasConfigValue
+            ? gptBackup.ConfigToml
+            : RemoveApiProviderConfiguration(currentConfig ?? string.Empty, out _);
+        RestoreFile(_configPath, configForGpt);
+
+        if (gptBackup.HasAuthValue)
+            RestoreFile(_authPath, gptBackup.Auth?.ToJsonString(IndentedJson));
+        else
+            RemoveApiKeyFromAuth();
+    }
+
+    public void SwitchToApiConfiguration()
+    {
+        if (GetCurrentMode() == CodexConfigurationMode.ApiConfiguration)
+            return;
+
+        if (!File.Exists(_apiBackupPath))
+            throw new InvalidOperationException($"未找到 API 配置备份：{_apiBackupPath}。请先使用 API 配置保存一次，再切换到 GPT 账号后重试。");
+
+        var apiBackup = ReadBackup(_apiBackupPath);
+        if (!apiBackup.HasConfigValue)
+            throw new InvalidDataException($"API 配置备份缺少 config 字段：{_apiBackupPath}");
+
+        var currentConfig = File.Exists(_configPath) ? File.ReadAllText(_configPath) : null;
+        var currentAuth = ReadJsonNode(_authPath);
+        WriteBackup(_gptBackupPath, currentConfig, currentAuth);
+
+        RestoreFile(_configPath, apiBackup.ConfigToml);
+        if (apiBackup.HasAuthValue)
+            RestoreFile(_authPath, apiBackup.Auth?.ToJsonString(IndentedJson));
+        else
+            RestoreFile(_authPath, null);
+    }
 
     public (string? BaseUrl, string? Model, string? ApiKey) LoadCurrent()
     {
@@ -222,6 +297,301 @@ public sealed class CodexConfigService
             UpdateExistingConfig(normalizedBaseUrl, model);
 
         WriteAuth(apiKey);
+    }
+
+    private static bool TryGetModelProvider(string text, out string? providerName)
+    {
+        providerName = null;
+        var inSection = false;
+        foreach (var line in text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n'))
+        {
+            var trimmed = line.Trim();
+            if (trimmed.StartsWith("[", StringComparison.Ordinal))
+            {
+                inSection = true;
+                continue;
+            }
+
+            if (inSection)
+                continue;
+
+            var match = Regex.Match(line, "^\\s*model_provider\\s*=\\s*(?<value>\\\"(?:\\\\.|[^\\\"])*\\\"|'[^']*')", RegexOptions.CultureInvariant);
+            if (!match.Success)
+                continue;
+
+            providerName = ParseTomlString(match.Groups["value"].Value);
+            return !string.IsNullOrWhiteSpace(providerName);
+        }
+
+        return false;
+    }
+
+    private static bool ContainsModelProviderSection(string text, string providerName)
+    {
+        foreach (var line in text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n'))
+        {
+            var header = ParseSectionHeader(line);
+            if (header is not null && IsModelProviderSection(header, providerName))
+                return true;
+        }
+
+        return false;
+    }
+
+    // Keep the user's TOML formatting and unrelated sections while removing the selected provider.
+    private static string RemoveApiProviderConfiguration(string text, out string? providerName)
+    {
+        providerName = null;
+        if (string.IsNullOrEmpty(text))
+            return text;
+
+        var newline = text.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
+        var lines = text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n').ToList();
+        var topLevelProviderLine = -1;
+        var inSection = false;
+        for (var index = 0; index < lines.Count; index++)
+        {
+            var header = ParseSectionHeader(lines[index]);
+            if (header is not null)
+            {
+                inSection = true;
+                continue;
+            }
+
+            if (inSection)
+                continue;
+
+            var match = Regex.Match(lines[index], "^\\s*model_provider\\s*=\\s*(?<value>\\\"(?:\\\\.|[^\\\"])*\\\"|'[^']*')", RegexOptions.CultureInvariant);
+            if (!match.Success)
+                continue;
+
+            providerName = ParseTomlString(match.Groups["value"].Value);
+            topLevelProviderLine = index;
+            break;
+        }
+
+        if (string.IsNullOrWhiteSpace(providerName))
+            return text;
+
+        var removeStart = -1;
+        var removeEnd = -1;
+        for (var index = 0; index < lines.Count; index++)
+        {
+            var header = ParseSectionHeader(lines[index]);
+            if (header is null)
+                continue;
+
+            if (removeStart < 0)
+            {
+                if (IsModelProviderSection(header, providerName))
+                    removeStart = index;
+                continue;
+            }
+
+            if (!IsModelProviderSection(header, providerName))
+            {
+                removeEnd = index;
+                break;
+            }
+        }
+
+        if (removeStart >= 0)
+        {
+            removeEnd = removeEnd >= 0 ? removeEnd : lines.Count;
+            lines.RemoveRange(removeStart, removeEnd - removeStart);
+            if (topLevelProviderLine > removeStart)
+                topLevelProviderLine -= removeEnd - removeStart;
+        }
+
+        if (topLevelProviderLine >= 0 && topLevelProviderLine < lines.Count)
+            lines.RemoveAt(topLevelProviderLine);
+
+        return string.Join(newline, lines);
+    }
+
+    private static string? ParseSectionHeader(string line)
+    {
+        var match = Regex.Match(line, @"^\s*\[(?<header>[^\]]+)\]\s*(?:#.*)?$", RegexOptions.CultureInvariant);
+        return match.Success ? match.Groups["header"].Value.Trim() : null;
+    }
+
+    private static bool IsModelProviderSection(string header, string providerName)
+    {
+        const string prefix = "model_providers.";
+        if (!header.StartsWith(prefix, StringComparison.Ordinal))
+            return false;
+
+        var path = header[prefix.Length..];
+        var first = FirstTomlPathSegment(path);
+        var parsed = ParseTomlString(first) ?? first;
+        return string.Equals(parsed, providerName, StringComparison.Ordinal);
+    }
+
+    private static string FirstTomlPathSegment(string path)
+    {
+        var quote = '\0';
+        var escaped = false;
+        for (var index = 0; index < path.Length; index++)
+        {
+            var character = path[index];
+            if (escaped)
+            {
+                escaped = false;
+                continue;
+            }
+
+            if (quote == '"' && character == '\\')
+            {
+                escaped = true;
+                continue;
+            }
+
+            if (quote != '\0')
+            {
+                if (character == quote)
+                    quote = '\0';
+                continue;
+            }
+
+            if (character is '"' or '\'')
+            {
+                quote = character;
+                continue;
+            }
+
+            if (character == '.')
+                return path[..index].Trim();
+        }
+
+        return path.Trim();
+    }
+
+    private static string? ParseTomlString(string value)
+    {
+        value = value.Trim();
+        if (value.Length < 2)
+            return null;
+
+        if (value[0] == '\'' && value[^1] == '\'')
+            return value[1..^1];
+        if (value[0] != '"' || value[^1] != '"')
+            return null;
+
+        var content = value[1..^1];
+        return content
+            .Replace("\\\"", "\"", StringComparison.Ordinal)
+            .Replace("\\\\", "\\", StringComparison.Ordinal);
+    }
+
+    private void WriteBackup(string path, string? configToml, JsonNode? auth)
+    {
+        // Store raw TOML plus the complete auth JSON so switching does not discard unknown fields.
+        var root = new JsonObject
+        {
+            ["config"] = configToml,
+            ["auth"] = auth?.DeepClone()
+        };
+        var json = root.ToJsonString(IndentedJson) + Environment.NewLine;
+        WriteTextAtomically(path, json);
+    }
+
+    private static ConfigurationBackup ReadBackup(string path)
+    {
+        if (!File.Exists(path))
+            return new ConfigurationBackup(null, null, false, false);
+
+        try
+        {
+            var root = JsonNode.Parse(File.ReadAllText(path)) as JsonObject;
+            if (root is null)
+                throw new InvalidDataException("备份内容不是 JSON 对象。");
+
+            string? config = null;
+            if (root["config"] is JsonValue configValue && configValue.TryGetValue<string>(out var configText))
+                config = configText;
+            else if (root["config_toml"] is JsonValue legacyConfig && legacyConfig.TryGetValue<string>(out var legacyText))
+                config = legacyText;
+
+            var hasConfig = root.ContainsKey("config") || root.ContainsKey("config_toml");
+            var hasAuth = root.ContainsKey("auth") || root.ContainsKey("auth_json");
+            var auth = root["auth"]?.DeepClone() ?? root["auth_json"]?.DeepClone();
+            return new ConfigurationBackup(config, auth, hasConfig, hasAuth);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidDataException($"无法读取 Codex 配置备份：{path}", ex);
+        }
+    }
+
+    private static JsonNode? ReadJsonNode(string path)
+    {
+        if (!File.Exists(path))
+            return null;
+
+        try
+        {
+            return JsonNode.Parse(File.ReadAllText(path));
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private void RemoveApiKeyFromAuth()
+    {
+        if (!File.Exists(_authPath))
+            return;
+
+        JsonObject? root;
+        try
+        {
+            root = JsonNode.Parse(File.ReadAllText(_authPath)) as JsonObject;
+        }
+        catch
+        {
+            root = null;
+        }
+
+        if (root is null)
+        {
+            RestoreFile(_authPath, "{}" + Environment.NewLine);
+            return;
+        }
+
+        root.Remove("OPENAI_API_KEY");
+        RestoreFile(_authPath, root.ToJsonString(IndentedJson) + Environment.NewLine);
+    }
+
+    private static void RestoreFile(string path, string? content)
+    {
+        if (content is null)
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+            return;
+        }
+
+        WriteTextAtomically(path, content);
+    }
+
+    private static void WriteTextAtomically(string path, string content)
+    {
+        var directory = Path.GetDirectoryName(path);
+        if (!string.IsNullOrEmpty(directory))
+            Directory.CreateDirectory(directory);
+
+        var temporary = path + ".tmp." + Guid.NewGuid().ToString("N");
+        try
+        {
+            File.WriteAllText(temporary, content, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+            File.Move(temporary, path, overwrite: true);
+        }
+        finally
+        {
+            if (File.Exists(temporary))
+                File.Delete(temporary);
+        }
     }
 
     private void CreateDefaultConfig(string baseUrl, string model)

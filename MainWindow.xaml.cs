@@ -18,13 +18,14 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         SizeChanged += MainWindow_SizeChanged;
-        CodexPathHint.Text = $"配置路径：{_codex.ConfigPath}\n认证路径：{_codex.AuthPath}";
+        CodexPathHint.Text = $"配置路径：{_codex.ConfigPath}\n认证路径：{_codex.AuthPath}\nAPI 备份：{_codex.ApiBackupPath}\nGPT 备份：{_codex.GptBackupPath}";
         ClaudePathHint.Text = $"配置路径：{_claude.SettingsPath}";
         Loaded += (_, _) =>
         {
             ApplyResponsiveLayout();
             LoadCodexExisting(quiet: true);
             LoadClaudeExisting(quiet: true);
+            UpdateCodexModeStatus();
             AppendLog("就绪。请在标签页中分别配置 Codex 或 Claude Code。");
         };
     }
@@ -112,6 +113,7 @@ public partial class MainWindow : Window
             var normalized = ModelsApiService.NormalizeCodexBaseUrl(baseUrl);
             _codex.Apply(baseUrl, apiKey, model);
             CodexBaseUrlBox.Text = normalized;
+            UpdateCodexModeStatus();
             AppendLog(existed
                 ? $"已更新 Codex 配置（含旧认证字段迁移）\n  base_url => {normalized}\n  config: {_codex.ConfigPath}\n  auth: {_codex.AuthPath}"
                 : $"已创建 Codex 配置\n  base_url => {normalized}\n  config: {_codex.ConfigPath}\n  auth: {_codex.AuthPath}");
@@ -122,6 +124,50 @@ public partial class MainWindow : Window
             AppendLog("写入 Codex 失败: " + ex.Message);
             MessageBox.Show(ex.Message, "写入失败", MessageBoxButton.OK, MessageBoxImage.Error);
         }
+    }
+
+    private void CodexSwitchGptButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            _codex.SwitchToGptAccount();
+            LoadCodexExisting(quiet: true);
+            UpdateCodexModeStatus();
+            AppendLog("Codex 已切换到 GPT 账号登录。API 配置和认证已备份。");
+            MessageBox.Show("Codex 已切换到 GPT 账号登录。现在可以使用 Codex 登录账号。", "切换成功", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            AppendLog("切换到 GPT 账号失败: " + ex.Message);
+            MessageBox.Show(ex.Message, "切换失败", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void CodexSwitchApiButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            _codex.SwitchToApiConfiguration();
+            LoadCodexExisting(quiet: true);
+            UpdateCodexModeStatus();
+            AppendLog("Codex 已切换到 API 配置。GPT 账号和认证已备份。");
+            MessageBox.Show("Codex 已切换到 API 配置。", "切换成功", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            AppendLog("切换到 API 配置失败: " + ex.Message);
+            MessageBox.Show(ex.Message, "切换失败", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void UpdateCodexModeStatus()
+    {
+        var mode = _codex.GetCurrentMode();
+        var apiMode = mode == CodexConfigurationMode.ApiConfiguration;
+        CodexModeStatusText.Text = apiMode ? "当前模式：API 配置" : "当前模式：GPT 账号登录";
+        CodexApiConfigurationPanel.Visibility = apiMode ? Visibility.Visible : Visibility.Collapsed;
+        CodexSwitchGptButton.IsEnabled = apiMode;
+        CodexSwitchApiButton.IsEnabled = !apiMode;
     }
 
     private bool LoadCodexExisting(bool quiet)

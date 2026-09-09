@@ -202,7 +202,7 @@
 
         <StackPanel Grid.Row="0" Margin="0,0,0,16">
             <TextBlock Text="API 配置工具" FontSize="26" FontWeight="Bold" Foreground="{StaticResource TextPrimary}"/>
-            <TextBlock Text="分别配置 Codex 与 Claude Code 的第三方 API（Base URL / API Key / 模型）"
+            <TextBlock Text="配置 Codex 与 Claude Code 的第三方 API，并在 Codex 中切换 API / GPT 账号登录"
                        FontSize="13" Foreground="{StaticResource TextSecondary}" Margin="0,6,0,0" TextWrapping="Wrap"/>
         </StackPanel>
 
@@ -220,6 +220,26 @@
                                 <TextBlock x:Name="CodexPathHint" TextWrapping="Wrap" FontSize="12"
                                            Foreground="{StaticResource TextSecondary}" Margin="0,0,0,14"/>
 
+                                <Border Background="#F1F5F9" BorderBrush="{StaticResource BorderColor}" BorderThickness="1"
+                                        CornerRadius="8" Padding="12" Margin="0,0,0,16">
+                                    <StackPanel>
+                                        <TextBlock Text="Codex 登录方式" Style="{StaticResource LabelStyle}" Margin="0"/>
+                                        <TextBlock x:Name="CodexModeStatusText" Text="当前模式：检测中..."
+                                                   Foreground="{StaticResource TextPrimary}" FontWeight="SemiBold" Margin="0,4,0,10"/>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Button x:Name="CodexSwitchApiButton" Content="切换到 API 配置" Style="{StaticResource SuccessButton}"
+                                                    Margin="0,0,6,0" Click="CodexSwitchApiButton_Click"/>
+                                            <Button x:Name="CodexSwitchGptButton" Grid.Column="1" Content="切换到 GPT 账号" Style="{StaticResource GhostButton}"
+                                                    Margin="6,0,0,0" Click="CodexSwitchGptButton_Click"/>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+
+                                <StackPanel x:Name="CodexApiConfigurationPanel">
                                 <TextBlock Text="Base URL" Style="{StaticResource LabelStyle}"/>
                                 <TextBox x:Name="CodexBaseUrlBox" Style="{StaticResource FieldStyle}" Text="https://api.example.com/v1"/>
 
@@ -271,6 +291,7 @@
                                     <Button x:Name="CodexLoadButton" Content="从现有配置加载" Style="{StaticResource GhostButton}" Margin="0,0,8,0" Click="CodexLoadButton_Click"/>
                                     <Button x:Name="CodexApplyButton" Grid.Column="1" Content="保存到 Codex" Style="{StaticResource SuccessButton}" Margin="8,0,0,0" Click="CodexApplyButton_Click"/>
                                 </Grid>
+                                </StackPanel>
                             </StackPanel>
                         </ScrollViewer>
                     </Border>
@@ -356,6 +377,6 @@
         </Grid>
 
         <TextBlock Grid.Row="2" Margin="0,12,0,0" FontSize="11" Foreground="#64748B" TextWrapping="Wrap"
-                   Text="提示：每个标签页独立配置。配置文件已存在时仅替换 base_url / api_key / model，其余字段保持不变。"/>
+                   Text="提示：每个标签页独立配置。Codex 切换会分别备份 API 和 GPT 账号的配置及认证信息；配置文件已存在时仅替换 base_url / api_key / model，其余字段保持不变。"/>
     </Grid>
 </Window>
