@@ -170,8 +170,9 @@ public sealed class CodexConfigService
 
     public CodexConfigurationMode GetCurrentMode()
     {
+        // 首次使用时（配置文件不存在），默认为 API 配置模式，方便用户直接配置
         if (!File.Exists(_configPath))
-            return CodexConfigurationMode.GptAccount;
+            return CodexConfigurationMode.ApiConfiguration;
 
         var text = File.ReadAllText(_configPath);
         return TryGetModelProvider(text, out var providerName) &&
