@@ -151,34 +151,65 @@ public sealed class CodexConfigService
     private readonly string _codexDir;
     private readonly string _configPath;
     private readonly string _authPath;
-    private readonly string _apiBackupPath;
-    private readonly string _gptBackupPath;
+    private readonly string _statePath;
 
     public CodexConfigService(string? codexDir = null)
     {
         _codexDir = codexDir ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".codex");
         _configPath = Path.Combine(_codexDir, "config.toml");
         _authPath = Path.Combine(_codexDir, "auth.json");
-        _apiBackupPath = Path.Combine(_codexDir, "apiconfig_backup_api.json");
-        _gptBackupPath = Path.Combine(_codexDir, "apiconfig_backup_gpt.json");
+        _statePath = Path.Combine(_codexDir, "apiconfig_state.json");
     }
 
     public string ConfigPath => _configPath;
     public string AuthPath => _authPath;
-    public string ApiBackupPath => _apiBackupPath;
-    public string GptBackupPath => _gptBackupPath;
+    public string StatePath => _statePath;
+    public bool HasApiBackup => ReadBackup("api").HasConfigValue;
 
     public CodexConfigurationMode GetCurrentMode()
     {
+        var storedMode = ReadStoredMode();
+        if (storedMode.HasValue)
+            return storedMode.Value;
+
         // 首次使用时（配置文件不存在），默认为 API 配置模式，方便用户直接配置
         if (!File.Exists(_configPath))
-            return CodexConfigurationMode.ApiConfiguration;
+            return RememberDetectedMode(CodexConfigurationMode.ApiConfiguration);
 
         var text = File.ReadAllText(_configPath);
-        return TryGetModelProvider(text, out var providerName) &&
-               ContainsModelProviderSection(text, providerName!)
-            ? CodexConfigurationMode.ApiConfiguration
-            : CodexConfigurationMode.GptAccount;
+        if (TryGetModelProvider(text, out var providerName) &&
+            ContainsModelProviderSection(text, providerName!))
+            return RememberDetectedMode(CodexConfigurationMode.ApiConfiguration);
+
+        // Accept older/API configurations that omit the top-level
+        // model_provider key but still define a provider with base_url.
+        try
+        {
+            var table = Toml.ToModel(text);
+            if (table.TryGetValue("model_providers", out var providersObj) && providersObj is TomlTable providers &&
+                providers.Values.OfType<TomlTable>().Any(provider =>
+                    provider.TryGetValue("base_url", out var baseUrl) && baseUrl is string value &&
+                    !string.IsNullOrWhiteSpace(value)))
+                return RememberDetectedMode(CodexConfigurationMode.ApiConfiguration);
+        }
+        catch
+        {
+            // Fall through to GPT mode for unreadable configuration files.
+        }
+
+        // A pre-existing GPT login without an API snapshot has never been
+        // managed by this tool. Start in API mode so the user can configure it
+        // once; subsequent launches follow the persisted state.
+        var initialMode = HasApiBackup
+            ? CodexConfigurationMode.GptAccount
+            : CodexConfigurationMode.ApiConfiguration;
+        return RememberDetectedMode(initialMode);
+    }
+
+    private CodexConfigurationMode RememberDetectedMode(CodexConfigurationMode mode)
+    {
+        WriteStoredMode(mode);
+        return mode;
     }
 
     public void SwitchToGptAccount()
@@ -186,13 +217,11 @@ public sealed class CodexConfigService
         if (GetCurrentMode() == CodexConfigurationMode.GptAccount)
             return;
 
-        var gptBackup = ReadBackup(_gptBackupPath);
-        if (File.Exists(_gptBackupPath) && !gptBackup.HasConfigValue)
-            throw new InvalidDataException($"GPT 配置备份缺少 config 字段：{_gptBackupPath}");
+        var gptBackup = ReadBackup("gpt");
 
         var currentConfig = File.Exists(_configPath) ? File.ReadAllText(_configPath) : null;
         var currentAuth = ReadJsonNode(_authPath);
-        WriteBackup(_apiBackupPath, currentConfig, currentAuth);
+        WriteBackup("api", currentConfig, currentAuth);
 
         var configForGpt = gptBackup.HasConfigValue
             ? gptBackup.ConfigToml
@@ -203,6 +232,8 @@ public sealed class CodexConfigService
             RestoreFile(_authPath, gptBackup.Auth?.ToJsonString(IndentedJson));
         else
             RemoveApiKeyFromAuth();
+
+        WriteStoredMode(CodexConfigurationMode.GptAccount);
     }
 
     public void SwitchToApiConfiguration()
@@ -210,22 +241,21 @@ public sealed class CodexConfigService
         if (GetCurrentMode() == CodexConfigurationMode.ApiConfiguration)
             return;
 
-        if (!File.Exists(_apiBackupPath))
-            throw new InvalidOperationException($"未找到 API 配置备份：{_apiBackupPath}。请先使用 API 配置保存一次，再切换到 GPT 账号后重试。");
-
-        var apiBackup = ReadBackup(_apiBackupPath);
+        var apiBackup = ReadBackup("api");
         if (!apiBackup.HasConfigValue)
-            throw new InvalidDataException($"API 配置备份缺少 config 字段：{_apiBackupPath}");
+            throw new InvalidOperationException($"未找到 API 配置备份：{_statePath}。请先使用 API 配置保存一次，再切换到 GPT 账号后重试。");
 
         var currentConfig = File.Exists(_configPath) ? File.ReadAllText(_configPath) : null;
         var currentAuth = ReadJsonNode(_authPath);
-        WriteBackup(_gptBackupPath, currentConfig, currentAuth);
+        WriteBackup("gpt", currentConfig, currentAuth);
 
         RestoreFile(_configPath, apiBackup.ConfigToml);
         if (apiBackup.HasAuthValue)
             RestoreFile(_authPath, apiBackup.Auth?.ToJsonString(IndentedJson));
         else
             RestoreFile(_authPath, null);
+
+        WriteStoredMode(CodexConfigurationMode.ApiConfiguration);
     }
 
     public (string? BaseUrl, string? Model, string? ApiKey) LoadCurrent()
@@ -234,11 +264,13 @@ public sealed class CodexConfigService
         string? model = null;
         string? apiKey = null;
 
-        if (File.Exists(_configPath))
+        string? configText = File.Exists(_configPath) ? File.ReadAllText(_configPath) : null;
+
+        if (!string.IsNullOrWhiteSpace(configText))
         {
             try
             {
-                var modelTable = Toml.ToModel(File.ReadAllText(_configPath));
+                var modelTable = Toml.ToModel(configText);
                 if (modelTable.TryGetValue("model", out var modelObj) && modelObj is string m)
                     model = m;
 
@@ -271,11 +303,12 @@ public sealed class CodexConfigService
             }
         }
 
-        if (File.Exists(_authPath))
+        var authText = File.Exists(_authPath) ? File.ReadAllText(_authPath) : null;
+        if (!string.IsNullOrWhiteSpace(authText))
         {
             try
             {
-                using var doc = JsonDocument.Parse(File.ReadAllText(_authPath));
+                using var doc = JsonDocument.Parse(authText);
                 if (doc.RootElement.TryGetProperty("OPENAI_API_KEY", out var key) && key.ValueKind == JsonValueKind.String)
                     apiKey = key.GetString();
             }
@@ -292,12 +325,23 @@ public sealed class CodexConfigService
         Directory.CreateDirectory(_codexDir);
         var normalizedBaseUrl = ModelsApiService.NormalizeBaseUrl(baseUrl);
 
+        // When the user opens the tool while Codex is using GPT account login,
+        // allow saving API settings directly while retaining the account state
+        // for a later switch back to GPT.
+        if (GetCurrentMode() == CodexConfigurationMode.GptAccount && !ReadBackup("gpt").HasConfigValue)
+        {
+            var currentConfig = File.Exists(_configPath) ? File.ReadAllText(_configPath) : null;
+            var currentAuth = ReadJsonNode(_authPath);
+            WriteBackup("gpt", currentConfig, currentAuth);
+        }
+
         if (!File.Exists(_configPath))
             CreateDefaultConfig(normalizedBaseUrl, model);
         else
             UpdateExistingConfig(normalizedBaseUrl, model);
 
         WriteAuth(apiKey);
+        WriteStoredMode(CodexConfigurationMode.ApiConfiguration);
     }
 
     private static bool TryGetModelProvider(string text, out string? providerName)
@@ -484,7 +528,7 @@ public sealed class CodexConfigService
             .Replace("\\\\", "\\", StringComparison.Ordinal);
     }
 
-    private void WriteBackup(string path, string? configToml, JsonNode? auth)
+    private void WriteBackup(string slot, string? configToml, JsonNode? auth)
     {
         // Store raw TOML plus the complete auth JSON so switching does not discard unknown fields.
         var root = new JsonObject
@@ -492,20 +536,64 @@ public sealed class CodexConfigService
             ["config"] = configToml,
             ["auth"] = auth?.DeepClone()
         };
-        var json = root.ToJsonString(IndentedJson) + Environment.NewLine;
-        WriteTextAtomically(path, json);
+        var state = ReadStateRoot();
+        state[slot] = root;
+        WriteStateRoot(state);
     }
 
-    private static ConfigurationBackup ReadBackup(string path)
+    private CodexConfigurationMode? ReadStoredMode()
     {
-        if (!File.Exists(path))
-            return new ConfigurationBackup(null, null, false, false);
+        try
+        {
+            var root = ReadStateRoot();
+            var mode = root["current_mode"]?.GetValue<string>();
+            if (string.Equals(mode, "api", StringComparison.OrdinalIgnoreCase))
+                return CodexConfigurationMode.ApiConfiguration;
+            if (string.Equals(mode, "gpt", StringComparison.OrdinalIgnoreCase))
+                return CodexConfigurationMode.GptAccount;
+        }
+        catch
+        {
+        }
+
+        return null;
+    }
+
+    private void WriteStoredMode(CodexConfigurationMode mode)
+    {
+        var root = ReadStateRoot();
+        root["current_mode"] = mode == CodexConfigurationMode.ApiConfiguration ? "api" : "gpt";
+        WriteStateRoot(root);
+    }
+
+    private JsonObject ReadStateRoot()
+    {
+        if (!File.Exists(_statePath))
+            return new JsonObject();
 
         try
         {
-            var root = JsonNode.Parse(File.ReadAllText(path)) as JsonObject;
+            return JsonNode.Parse(File.ReadAllText(_statePath)) as JsonObject ?? new JsonObject();
+        }
+        catch
+        {
+            return new JsonObject();
+        }
+    }
+
+    private void WriteStateRoot(JsonObject root)
+    {
+        var json = root.ToJsonString(IndentedJson) + Environment.NewLine;
+        WriteTextAtomically(_statePath, json);
+    }
+
+    private ConfigurationBackup ReadBackup(string slot)
+    {
+        try
+        {
+            var root = ReadStateRoot()[slot]?.DeepClone() as JsonObject;
             if (root is null)
-                throw new InvalidDataException("备份内容不是 JSON 对象。");
+                return new ConfigurationBackup(null, null, false, false);
 
             string? config = null;
             if (root["config"] is JsonValue configValue && configValue.TryGetValue<string>(out var configText))
@@ -520,7 +608,7 @@ public sealed class CodexConfigService
         }
         catch (Exception ex)
         {
-            throw new InvalidDataException($"无法读取 Codex 配置备份：{path}", ex);
+            throw new InvalidDataException($"无法读取 Codex 配置备份：{_statePath}", ex);
         }
     }
 

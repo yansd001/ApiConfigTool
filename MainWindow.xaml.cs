@@ -18,7 +18,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         SizeChanged += MainWindow_SizeChanged;
-        CodexPathHint.Text = $"配置路径：{_codex.ConfigPath}\n认证路径：{_codex.AuthPath}\nAPI 备份：{_codex.ApiBackupPath}\nGPT 备份：{_codex.GptBackupPath}";
+        CodexPathHint.Text = $"配置路径：{_codex.ConfigPath}\n认证路径：{_codex.AuthPath}\n状态文件：{_codex.StatePath}";
         ClaudePathHint.Text = $"配置路径：{_claude.SettingsPath}";
         Loaded += (_, _) =>
         {
@@ -163,11 +163,12 @@ public partial class MainWindow : Window
     private void UpdateCodexModeStatus()
     {
         var mode = _codex.GetCurrentMode();
-        var apiMode = mode == CodexConfigurationMode.ApiConfiguration;
+        var actualApiMode = mode == CodexConfigurationMode.ApiConfiguration;
+        var apiMode = actualApiMode;
         CodexModeStatusText.Text = apiMode ? "当前模式：API 配置" : "当前模式：GPT 账号登录";
         CodexApiConfigurationPanel.Visibility = apiMode ? Visibility.Visible : Visibility.Collapsed;
-        CodexSwitchGptButton.IsEnabled = apiMode;
-        CodexSwitchApiButton.IsEnabled = !apiMode;
+        CodexSwitchGptButton.IsEnabled = actualApiMode;
+        CodexSwitchApiButton.IsEnabled = !actualApiMode && _codex.HasApiBackup;
     }
 
     private bool LoadCodexExisting(bool quiet)

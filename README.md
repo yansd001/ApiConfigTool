@@ -26,6 +26,8 @@
 
 双击 `ApiConfigTool.exe`，选择 Codex 或 Claude Code 标签页，填写配置后保存即可。
 
+打开工具时，Codex 未配置或当前为 GPT 账号登录状态会直接显示 API 配置表单，可先填写并保存 API 配置。
+
 在 Codex 标签页中，可以使用“切换到 GPT 账号”和“切换到 API 配置”按钮切换登录方式。首次切换到 GPT 账号且不存在 GPT 备份时，程序会移除当前 API provider 和 API Key；请随后使用 Codex 自带流程登录账号。之后切回 API 配置会自动恢复 API 备份。
 
 Windows 版本会修改以下文件：
@@ -33,8 +35,7 @@ Windows 版本会修改以下文件：
 - Codex
   - `%USERPROFILE%\.codex\config.toml`
   - `%USERPROFILE%\.codex\auth.json`
-  - `%USERPROFILE%\.codex\apiconfig_backup_api.json`
-  - `%USERPROFILE%\.codex\apiconfig_backup_gpt.json`
+  - `%USERPROFILE%\.codex\apiconfig_state.json`（当前模式及两套配置备份）
 - Claude Code
   - `%USERPROFILE%\.claude\settings.json`
 
