@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using ApiConfigTool.Services;
@@ -31,6 +32,7 @@ public partial class MainWindow : Window
     private IProfileConfigService Service => _isCodex ? _codex : _claude;
     private EditorSession Session => _isCodex ? _codexSession : _claudeSession;
     private string AppName => _isCodex ? "Codex" : "Claude Code";
+    internal Func<ApiProfile, bool> ConfirmProfileDeletion { get; set; }
 
     public sealed class ProfileCard(ApiProfile profile, bool isActive, BalanceSnapshot balance) : INotifyPropertyChanged
     {
@@ -66,6 +68,9 @@ public partial class MainWindow : Window
         _codex = codex;
         _claude = claude;
         _balances = balances ?? new BalanceMonitor();
+        ConfirmProfileDeletion = profile => MessageBox.Show(this,
+            $"确定删除配置「{profile.Name}」吗？\n\n删除后，已写入本机的 {AppName} 配置仍会保留。",
+            "删除配置", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) == MessageBoxResult.Yes;
         InitializeComponent();
         _balances.Changed += Balances_Changed;
         SizeChanged += (_, _) => ApplyLayout();
@@ -217,7 +222,6 @@ public partial class MainWindow : Window
         SourceBox.IsUndoEnabled = false; SourceBox.IsUndoEnabled = true;
         SetEditorMode(draft.SourceMode);
         EditorTitle.Text = profile is null ? "新增配置" : "编辑配置";
-        DeleteProfileButton.Visibility = profile is null ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private void SetEditorMode(bool source)
@@ -346,13 +350,20 @@ public partial class MainWindow : Window
     });
     private void DeleteProfile_Click(object sender, RoutedEventArgs e) => Run(() =>
     {
-        if (Session.Id is null) return;
-        Service.DeleteProfile(Session.Id);
-        Session.Drafts.Remove(Session.Id);
-        Session.Id = null;
-        Session.Initialized = false;
-        RefreshProfiles(selectInitial: true);
-        Report("配置已删除。");
+        e.Handled = true;
+        if (sender is not Button { Tag: string id }) return;
+        var profile = Session.Cards.FirstOrDefault(card => card.Profile.Id == id)?.Profile;
+        if (profile is null || !ConfirmProfileDeletion(profile)) return;
+        Service.DeleteProfile(id);
+        Session.Drafts.Remove(id);
+        if (Session.Id == id)
+        {
+            Session.Id = null;
+            Session.Initialized = false;
+            RefreshProfiles(selectInitial: true);
+        }
+        else RefreshProfiles();
+        Report($"已删除「{profile.Name}」，本机配置保持不变。");
     });
     private void ImportProfile_Click(object sender, RoutedEventArgs e) => Run(() =>
     {
@@ -377,6 +388,13 @@ public partial class MainWindow : Window
     }
     private string GetKey() => (ShowKeyCheck.IsChecked == true ? ApiKeyPlainBox.Text : ApiKeyBox.Password).Trim();
     private void SetKey(string key) { ApiKeyBox.Password = key; ApiKeyPlainBox.Text = key; }
+    private void ModelInput_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        // Open from the editable area as well as the arrow, without consuming text editing input.
+        if (sender is FrameworkElement { TemplatedParent: ComboBox combo } && combo.HasItems)
+            combo.IsDropDownOpen = true;
+    }
+
     private async void Fetch_Click(object sender, RoutedEventArgs e)
     {
         var url = BaseUrlBox.Text.Trim();

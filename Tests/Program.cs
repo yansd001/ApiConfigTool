@@ -37,7 +37,25 @@ internal static partial class Program
             ("State failure rolls both live files back", d => Rollback(d, "apiconfig_state.json")),
             ("Auth failure leaves everything unchanged", d => Rollback(d, "auth.json")),
             ("Rollback removes newly-created auth and config", d => { var a = d.Save("A"); var before = d.Bytes(); var fail = new CodexConfigService(d.Path, (path, bytes) => { if (path.EndsWith("apiconfig_state.json")) throw new IOException("injected"); AtomicFile.Write(path, bytes); }); Throws(() => fail.ActivateProfile(a.Id)); d.Unchanged(before); }),
-            ("Active deletion blocked, inactive deletion persists", d => { var a = d.Save("A"); var b = d.Save("B"); d.Service.ActivateProfile(a.Id); Throws(() => d.Service.DeleteProfile(a.Id)); d.Service.DeleteProfile(b.Id); Check(d.Service.LoadProfiles().Profiles.Count == 1); d.Service.SwitchToGptAccount(); d.Service.DeleteProfile(a.Id); Check(d.Service.LoadProfiles().Profiles.Count == 0); }),
+            ("Codex deletes inactive, active and last profiles without touching live files", d =>
+            {
+                var a = d.Save("A"); var b = d.Save("B");
+                d.WriteAuth("{\"tokens\":{\"refresh_token\":\"keep\"}}");
+                d.Service.ActivateProfile(a.Id);
+                var config = File.ReadAllBytes(d.Service.ConfigPath); var auth = File.ReadAllBytes(d.Service.AuthPath);
+                d.Service.DeleteProfile(b.Id);
+                Check(d.Service.LoadProfiles().ActiveId == a.Id);
+                b = d.Save("B");
+                d.Service.DeleteProfile(a.Id);
+                var state = d.Service.LoadProfiles();
+                Check(state.Profiles.Single().Id == b.Id && state.ActiveId is null && state.Mode == CodexConfigurationMode.ApiConfiguration);
+                Check(!JsonNode.Parse(File.ReadAllText(d.Service.StatePath))!.AsObject().ContainsKey("active_profile_id"));
+                d.Service.ActivateProfile(b.Id);
+                config = File.ReadAllBytes(d.Service.ConfigPath);
+                d.Service.DeleteProfile(b.Id);
+                Check(new CodexConfigService(d.Path).LoadProfiles().Profiles.Count == 0);
+                Check(config.SequenceEqual(File.ReadAllBytes(d.Service.ConfigPath)) && auth.SequenceEqual(File.ReadAllBytes(d.Service.AuthPath)));
+            }),
             ("External config changes clear active status", d => { var a = d.Save("A"); d.Service.ActivateProfile(a.Id); d.WriteConfig("model='external'\n"); var list = d.Service.LoadProfiles(); Check(list.ActiveId is null && list.Mode == CodexConfigurationMode.GptAccount); }),
             ("Default Codex profile cannot silently override activation", d => { var a = d.Save("A"); d.WriteConfig("profile='work'\nmodel='m'\n[profiles.work]\nmodel_provider='openai'\n"); var before = d.Bytes(); Throws(() => d.Service.ActivateProfile(a.Id)); d.Unchanged(before); }),
             ("Active detection honors default Codex profile", d => { var a = d.Save("A"); d.Service.ActivateProfile(a.Id); var live = File.ReadAllText(d.Service.ConfigPath); d.WriteConfig("profile='work'\n" + live + "\n[profiles.work]\nmodel='different-model'\n"); Check(d.Service.LoadProfiles().ActiveId is null); }),
@@ -107,6 +125,7 @@ internal static partial class Program
         var editor = (TextBox)combo.Template.FindName("PART_EditableTextBox", combo);
         editor.Text = "typed-model"; Pump(); Check(combo.Text == "typed-model");
         editor.Text = "gpt-5"; Pump();
+        ModelDropdownChecks(window, combo);
         var profiles = (ListBox)window.FindName("ProfileList");
         var baseUrl = (TextBox)window.FindName("BaseUrlBox");
         baseUrl.Text = "https://draft.example.com/v1";
@@ -134,10 +153,12 @@ internal static partial class Program
         Check(d.Service.LoadProfiles().ActiveId == a.Id);
         Click(window, "SaveActivateButton");
         Check((string)d.Provider()["experimental_bearer_token"] == "ui-key");
+        var newId = d.Service.LoadProfiles().ActiveId!;
+        ConfirmedDeletionChecks(window, d.Service, newId);
+        Check(d.Service.LoadProfiles().Profiles.Count == 2 && d.Service.LoadProfiles().ActiveId is null);
         Click(window, "GptButton");
         Check(d.Service.LoadProfiles().Mode == CodexConfigurationMode.GptAccount);
-        Click(window, "DeleteProfileButton");
-        Check(d.Service.LoadProfiles().Profiles.Count == 2);
+        DeleteOtherAndLastProfileChecks(window, d.Service, a.Id);
         window.Close(); app.Shutdown();
         _passed++;
         Console.WriteLine("PASS WPF render, editable model, draft retention, compact layout, navigation and save/activate/GPT/delete buttons");

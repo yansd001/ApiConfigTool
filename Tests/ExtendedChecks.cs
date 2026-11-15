@@ -18,7 +18,26 @@ internal static partial class Program
             ("Claude drafts do not modify active file", d => { var c = new ClaudeConfigService(d.Path); var a = c.SaveProfile(null, "A", "https://a.example", "key", "m"); c.ActivateProfile(a.Id); var before = File.ReadAllBytes(c.ConfigPath); c.SaveProfile(a.Id, "A", "https://new.example", "new-key", "new-model"); Check(before.SequenceEqual(File.ReadAllBytes(c.ConfigPath))); Check(c.LoadProfiles().ActiveId is null); }),
             ("Claude imports an existing API-key config on first launch", d => { var c = new ClaudeConfigService(d.Path); File.WriteAllText(c.ConfigPath, "{\"env\":{\"ANTHROPIC_API_KEY\":\"key\",\"ANTHROPIC_BASE_URL\":\"https://existing.example/api\"},\"model\":\"m\",\"permissions\":{\"allow\":[\"Read\"]}}"); var list = c.LoadProfiles(); Check(list.Profiles.Count == 1 && list.ActiveId == list.Profiles[0].Id); Check(list.Profiles[0].Id == c.LoadProfiles().Profiles[0].Id); var imported = c.ImportCurrent(); c.ActivateProfile(imported.Id); Check(ReadClaude(c)["env"]!["ANTHROPIC_API_KEY"]!.GetValue<string>() == "key"); Check(ReadClaude(c)["permissions"] is JsonObject); }),
             ("Claude removes stale alternate authentication", d => { var c = new ClaudeConfigService(d.Path); File.WriteAllText(c.ConfigPath, "{\"env\":{\"ANTHROPIC_API_KEY\":\"stale\",\"CUSTOM\":\"keep\"}}"); var a = c.SaveProfile(null, "A", "https://a.example", "new", "m"); c.ActivateProfile(a.Id); var env = (JsonObject)ReadClaude(c)["env"]!; Check(!env.ContainsKey("ANTHROPIC_API_KEY")); Check(env["CUSTOM"]!.GetValue<string>() == "keep"); }),
-            ("Claude protects active profile and deletes inactive", d => { var c = new ClaudeConfigService(d.Path); var a = c.SaveProfile(null, "A", "https://a.example", "key", "m"); var b = c.SaveProfile(null, "B", "https://b.example", "key", "m"); c.ActivateProfile(a.Id); Throws(() => c.DeleteProfile(a.Id)); c.DeleteProfile(b.Id); Check(c.LoadProfiles().Profiles.Count == 1); }),
+            ("Claude deletes inactive, active and last profiles without touching live settings", d =>
+            {
+                var c = new ClaudeConfigService(d.Path);
+                var a = c.SaveProfile(null, "A", "https://a.example", "key", "m");
+                var b = c.SaveProfile(null, "B", "https://b.example", "key", "m");
+                c.ActivateProfile(a.Id);
+                var live = File.ReadAllBytes(c.ConfigPath);
+                c.DeleteProfile(b.Id);
+                Check(c.LoadProfiles().ActiveId == a.Id);
+                b = c.SaveProfile(null, "B", "https://b.example", "key", "m");
+                c.DeleteProfile(a.Id);
+                Check(c.LoadProfiles().Profiles.Single().Id == b.Id && c.LoadProfiles().ActiveId is null);
+                Check(!JsonNode.Parse(File.ReadAllText(c.StatePath))!.AsObject().ContainsKey("active_profile_id"));
+                Check(live.SequenceEqual(File.ReadAllBytes(c.ConfigPath)));
+                c.ActivateProfile(b.Id);
+                live = File.ReadAllBytes(c.ConfigPath);
+                c.DeleteProfile(b.Id);
+                Check(new ClaudeConfigService(d.Path).LoadProfiles().Profiles.Count == 0);
+                Check(live.SequenceEqual(File.ReadAllBytes(c.ConfigPath)));
+            }),
             ("Claude identical fields track selected ID", d => { var c = new ClaudeConfigService(d.Path); c.SaveProfile(null, "A", "https://a.example", "key", "m"); var b = c.SaveProfile(null, "B", "https://a.example", "key", "m"); c.ActivateProfile(b.Id); Check(c.LoadProfiles().ActiveId == b.Id); }),
             ("Claude source adds, edits and removes arbitrary settings", d => { var c = new ClaudeConfigService(d.Path); File.WriteAllText(c.ConfigPath, "{\"permissions\":{\"allow\":[\"Read\"]},\"env\":{\"REMOVE_ME\":\"old\"}}"); var preview = c.PreviewConfig(new("", "A", "https://a.example", "key", "m")); var json = JsonNode.Parse(preview)!.AsObject(); json["permissions"]!["allow"] = new JsonArray("Read", "Edit"); json["custom"] = new JsonObject { ["array"] = new JsonArray(1, 2, 3), ["flag"] = true }; ((JsonObject)json["env"]!).Remove("REMOVE_ME"); var p = c.SaveProfile(null, "A", "ignored", "ignored", "ignored", json.ToJsonString()); Check(!ReadClaude(c).ContainsKey("custom")); c.ActivateProfile(p.Id); Check(JsonNode.DeepEquals(json, ReadClaude(c))); Check(c.LoadProfiles().ActiveId == p.Id); }),
             ("Claude custom source survives form edits", d => { var c = new ClaudeConfigService(d.Path); var raw = "{\"env\":{\"ANTHROPIC_AUTH_TOKEN\":\"key\",\"ANTHROPIC_BASE_URL\":\"https://a.example\",\"CUSTOM\":\"keep\"},\"model\":\"m\",\"permissions\":{\"allow\":[\"Read\"]}}"; var p = c.SaveProfile(null, "A", "", "", "", raw); var updated = c.PreviewConfig(p with { Model = "new-model", ApiKey = "new-key" }); p = c.SaveProfile(p.Id, "A", "", "", "", updated); c.ActivateProfile(p.Id); Check(ReadClaude(c)["model"]!.GetValue<string>() == "new-model"); Check(ReadClaude(c)["env"]!["CUSTOM"]!.GetValue<string>() == "keep"); }),
@@ -121,14 +140,8 @@ internal static partial class Program
         var newId = claude.LoadProfiles().Profiles.Last().Id;
         Click(window, "SaveActivateButton");
         Check(claude.LoadProfiles().ActiveId == newId);
-        ((Button)window.FindName("DeleteProfileButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); Pump();
-        Check(claude.LoadProfiles().Profiles.Count == 3);
-        var target = claude.LoadProfiles().Profiles.First();
-        var activate = new Button { Tag = target.Id };
-        typeof(MainWindow).GetMethod("ActivateProfile_Click", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.Invoke(window, new object[] { activate, new RoutedEventArgs(Button.ClickEvent) });
-        Pump();
-        Click(window, "DeleteProfileButton");
-        Check(claude.LoadProfiles().Profiles.Count == 2);
+        ConfirmedDeletionChecks(window, claude, newId);
+        Check(claude.LoadProfiles().Profiles.Count == 2 && claude.LoadProfiles().ActiveId is null);
         Mode(window, "BasicModeButton");
         _passed++;
         Console.WriteLine("PASS Claude UI create/switch/delete, TOML/JSON source-form sync, syntax rejection and draft isolation");

@@ -79,10 +79,9 @@ public sealed class ClaudeConfigService : IProfileConfigService
         var state = LoadState();
         var profiles = ReadProfiles(state);
         var profile = profiles.SingleOrDefault(p => p.Id == id) ?? throw new InvalidOperationException("未找到该配置。");
-        if (Matches(profile, ReadLive()) || String(state, "active_profile_id") == id)
-            throw new InvalidOperationException("请先启用其他配置，再删除当前配置。");
         profiles.Remove(profile);
         SetProfiles(state, profiles);
+        if (String(state, "active_profile_id") == id) state.Remove("active_profile_id");
         WriteState(state);
     }
 

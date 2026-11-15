@@ -76,10 +76,6 @@ public sealed class CodexConfigService : IProfileConfigService
         var profiles = ReadProfiles(state);
         var profile = profiles.SingleOrDefault(p => p.Id == id)
             ?? throw new InvalidOperationException("未找到该配置。");
-        var live = ReadLive();
-        if (DetectMode(live.Config) == CodexConfigurationMode.ApiConfiguration &&
-            (Matches(profile, ReadSettings(live.Config, live.Auth)) || GetString(state, "active_profile_id") == id))
-            throw new InvalidOperationException("请先启用其他配置或切换到 GPT 账号，再删除当前配置。");
         profiles.Remove(profile);
         SetProfiles(state, profiles);
         if (GetString(state, "active_profile_id") == id) state.Remove("active_profile_id");

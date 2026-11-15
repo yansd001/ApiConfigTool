@@ -47,8 +47,8 @@
         <Style TargetType="ComboBox">
             <Setter Property="IsEditable" Value="True"/><Setter Property="IsTextSearchEnabled" Value="False"/><Setter Property="Height" Value="40"/><Setter Property="Background" Value="White"/><Setter Property="BorderBrush" Value="{StaticResource Line}"/>
             <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ComboBox"><Grid>
-                <Border CornerRadius="7" BorderThickness="1" BorderBrush="{TemplateBinding BorderBrush}" Background="White"/>
-                <TextBox x:Name="PART_EditableTextBox" Margin="1,1,33,1" BorderThickness="0" Background="Transparent" Padding="11,8"/>
+                <Border CornerRadius="7" BorderThickness="1" BorderBrush="{TemplateBinding BorderBrush}" Background="White" PreviewMouseLeftButtonUp="ModelInput_PreviewMouseLeftButtonUp"/>
+                <TextBox x:Name="PART_EditableTextBox" Margin="1,1,33,1" BorderThickness="0" Background="Transparent" Padding="11,8" PreviewMouseLeftButtonUp="ModelInput_PreviewMouseLeftButtonUp"/>
                 <ToggleButton Width="32" HorizontalAlignment="Right" Focusable="False" IsChecked="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
                     <ToggleButton.Template><ControlTemplate TargetType="ToggleButton"><Border Background="Transparent"><TextBlock Text="⌄" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#71717A"/></Border></ControlTemplate></ToggleButton.Template>
                 </ToggleButton>
@@ -116,7 +116,11 @@
                             <ListBox.ItemTemplate><DataTemplate><StackPanel>
                                 <DockPanel><Border DockPanel.Dock="Right" Background="#E8F7EE" CornerRadius="4" Padding="6,2" Margin="6,0,0,0" Visibility="{Binding IsActive, Converter={StaticResource BoolVisibility}}"><TextBlock Text="已启用" FontSize="10" Foreground="#15803D"/></Border><TextBlock Text="{Binding Profile.Name}" TextTrimming="CharacterEllipsis" FontWeight="SemiBold" FontSize="14" ToolTip="{Binding Profile.Name}"/></DockPanel>
                                 <TextBlock Text="{Binding Profile.BaseUrl}" Foreground="{StaticResource Muted}" FontSize="11" TextTrimming="CharacterEllipsis" Margin="0,8,0,0" ToolTip="{Binding Profile.BaseUrl}"/>
-                                <DockPanel Margin="0,12,0,0"><Button DockPanel.Dock="Right" Content="启用" Padding="12,5" FontSize="12" Tag="{Binding Profile.Id}" IsEnabled="{Binding CanActivate}" Click="ActivateProfile_Click"/><TextBlock Text="{Binding Profile.Model}" Foreground="#52525B" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,6,0"/></DockPanel>
+                                <TextBlock Text="{Binding Profile.Model}" Foreground="#52525B" TextTrimming="CharacterEllipsis" Margin="0,8,0,0" ToolTip="{Binding Profile.Model}"/>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+                                    <Button Content="启用" Padding="12,5" FontSize="12" Tag="{Binding Profile.Id}" IsEnabled="{Binding CanActivate}" Click="ActivateProfile_Click"/>
+                                    <Button Content="删除" Padding="12,5" FontSize="12" Margin="6,0,0,0" Foreground="#B91C1C" Tag="{Binding Profile.Id}" Click="DeleteProfile_Click"/>
+                                </StackPanel>
                                 <Border BorderBrush="#E4E4E7" BorderThickness="0,1,0,0" Margin="0,12,0,0" Padding="0,10,0,0" ToolTip="{Binding BalanceTooltip}">
                                     <StackPanel>
                                         <TextBlock Text="{Binding BalanceSummary}" FontWeight="SemiBold" Foreground="#3F3F46" FontSize="12" TextWrapping="Wrap"/>
@@ -133,7 +137,7 @@
                     <Grid>
                         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                         <StackPanel>
-                            <DockPanel><Button DockPanel.Dock="Right" x:Name="DeleteProfileButton" Content="删除" Padding="10,5" Foreground="#B91C1C" Click="DeleteProfile_Click"/><TextBlock x:Name="EditorTitle" Text="新增配置" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center"/></DockPanel>
+                            <TextBlock x:Name="EditorTitle" Text="新增配置" FontSize="18" FontWeight="SemiBold"/>
                             <TextBlock x:Name="EditorDescription" Text="保存到列表后，点击启用即可切换。" Foreground="{StaticResource Muted}" Margin="0,8,0,16" TextWrapping="Wrap"/>
                             <StackPanel x:Name="NameField"><TextBlock Text="配置名称（可选）" Style="{StaticResource Label}"/><TextBox x:Name="ProfileNameBox" AutomationProperties.Name="配置名称"/></StackPanel>
                         </StackPanel>
