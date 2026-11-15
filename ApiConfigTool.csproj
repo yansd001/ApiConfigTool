@@ -14,6 +14,8 @@
 
   <ItemGroup>
     <PackageReference Include="Tomlyn" Version="0.19.0" />
+    <Compile Remove="Tests\**\*.cs" />
+    <Page Remove="Tests\**\*.xaml" />
   </ItemGroup>
 
 </Project>

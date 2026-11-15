@@ -44,6 +44,10 @@ jobs:
           echo "tag=v${next}" >> "${GITHUB_OUTPUT}"
           echo "Next version: v${next}"
 
+      - name: Verify configuration switching and WPF UI
+        shell: pwsh
+        run: dotnet run --project Tests/ApiConfigTool.Tests.csproj -c Release
+
       - name: Publish single-file exe
         shell: pwsh
         run: |
