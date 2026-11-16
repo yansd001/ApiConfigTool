@@ -1,6 +1,6 @@
 {
   "name": "api-config-tool",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Focused Codex, Claude Code and Claude Desktop configuration, derived from CC Switch",
   "type": "module",

@@ -1,6 +1,13 @@
 // Real Windows executable + WebView2 + Tauri IPC. Every application path is isolated.
 import { chromium, expect } from "@playwright/test";
-import { mkdtemp, mkdir, writeFile, readFile } from "node:fs/promises";
+import {
+  mkdtemp,
+  mkdir,
+  writeFile,
+  readFile,
+  copyFile,
+} from "node:fs/promises";
+import { openSync, closeSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve, join } from "node:path";
 import { execFile, spawn } from "node:child_process";
@@ -84,6 +91,8 @@ for (const app of ["codex", "claude", "claude-desktop"]) {
     }),
   );
 }
+let launcherFailure;
+const launcherOutput = openSync(join(root, "launcher.log"), "a");
 const launcher = spawn(
   "pwsh",
   [
@@ -97,36 +106,78 @@ const launcher = spawn(
     "-DebugPort",
     String(port),
   ],
-  { stdio: "ignore", windowsHide: true },
+  { stdio: ["ignore", launcherOutput, launcherOutput], windowsHide: true },
 );
-launcher.unref();
+closeSync(launcherOutput);
+launcher.on("error", (error) => {
+  launcherFailure = error;
+});
 let pid;
-for (let attempt = 0; attempt < 80; attempt++) {
-  try {
-    pid = Number((await readFile(join(root, "app.pid"), "utf8")).trim());
-    if (pid) break;
-  } catch {}
-  await new Promise((resolve) => setTimeout(resolve, 250));
-}
-if (!pid) throw new Error("Native launcher did not return a process ID.");
 let browser;
 try {
-  const deadline = Date.now() + 30000;
-  while (Date.now() < deadline) {
+  const launchDeadline = Date.now() + 20000;
+  while (Date.now() < launchDeadline) {
+    if (launcherFailure)
+      throw new Error(
+        `Native launcher could not start: ${launcherFailure.message}`,
+      );
+    if (launcher.exitCode !== null && launcher.exitCode !== 0)
+      throw new Error(
+        `Native launcher failed (exit code ${launcher.exitCode}). See launcher.log.`,
+      );
     try {
-      if (
-        (
-          await fetch(`http://127.0.0.1:${port}/json/version`, {
-            signal: AbortSignal.timeout(1000),
-          })
-        ).ok
-      )
+      const value = Number(
+        (await readFile(join(root, "app.pid"), "utf8")).trim(),
+      );
+      if (Number.isInteger(value) && value > 0) {
+        pid = value;
         break;
+      }
     } catch {}
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
-  browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`);
-  const page = browser.contexts()[0].pages()[0];
+  if (!pid)
+    throw new Error(
+      "Native launcher did not return a process ID within 20 seconds. See launcher.log.",
+    );
+  const deadline = Date.now() + 90000;
+  let ready = false;
+  while (Date.now() < deadline) {
+    try {
+      process.kill(pid, 0);
+    } catch {
+      throw new Error(
+        "Native application exited before WebView2 was ready. See native.stderr.log and runtime.txt.",
+      );
+    }
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/json/version`, {
+        signal: AbortSignal.timeout(1000),
+      });
+      if (response.ok && (await response.json()).webSocketDebuggerUrl) {
+        ready = true;
+        break;
+      }
+    } catch {}
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  if (!ready)
+    throw new Error(
+      `WebView2 did not expose its debug endpoint within 90 seconds (port ${port}). Check runtime.txt and native.stderr.log.`,
+    );
+  browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`, {
+    timeout: 15000,
+  });
+  let page;
+  await expect
+    .poll(
+      () => {
+        page = browser.contexts().flatMap((context) => context.pages())[0];
+        return Boolean(page);
+      },
+      { timeout: 15000, message: "The native WebView2 page did not appear." },
+    )
+    .toBeTruthy();
   const failures = [];
   page.on("pageerror", (error) => failures.push(error.message));
   await expect(
@@ -283,6 +334,19 @@ try {
   console.log(
     "Native smoke passed: API/account switching, credential preservation, automatic and custom balance queries through real IPC and local HTTP, and unsaved close. All files were isolated in a temporary directory.",
   );
+} catch (error) {
+  await writeFile(
+    join(root, "failure.txt"),
+    error instanceof Error ? (error.stack ?? error.message) : String(error),
+  );
+  console.error(
+    `Native check failed. Diagnostics: ${resolve("artifacts/native")}`,
+  );
+  for (const file of ["launcher.log", "native.stderr.log"]) {
+    const log = await readFile(join(root, file), "utf8").catch(() => "");
+    if (log.trim()) console.error(`${file}:\n${log.slice(-8000)}`);
+  }
+  throw error;
 } finally {
   balanceServer.closeAllConnections();
   balanceServer.close();
@@ -293,4 +357,17 @@ try {
       "-Command",
       `Stop-Process -Id ${pid} -ErrorAction SilentlyContinue`,
     ]).catch(() => {});
+  await mkdir("artifacts/native", { recursive: true });
+  // Upload startup diagnostics only, never configuration fixtures or credentials.
+  for (const file of [
+    "launcher.log",
+    "native.stdout.log",
+    "native.stderr.log",
+    "runtime.txt",
+    "failure.txt",
+  ]) {
+    await copyFile(join(root, file), join("artifacts/native", file)).catch(
+      () => writeFile(join("artifacts/native", file), ""),
+    );
+  }
 }

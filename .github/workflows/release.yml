@@ -9,28 +9,15 @@ on:
 permissions:
   contents: read
 
+env:
+  RELEASE_TAG: v1.0
+
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-v1.0
   cancel-in-progress: false
 
 jobs:
-  version:
-    runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.version.outputs.version }}
-      tag: ${{ steps.version.outputs.tag }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-      - id: version
-        run: node scripts/release-version.mjs --next
-
   build:
-    needs: version
     strategy:
       fail-fast: false
       matrix:
@@ -59,7 +46,6 @@ jobs:
           workspaces: src-tauri
           key: ${{ matrix.target }}
       - run: npm ci
-      - run: node scripts/release-version.mjs ${{ needs.version.outputs.version }}
       - run: npm run typecheck
       - run: npm test
       - run: npm run test:backend
@@ -76,14 +62,33 @@ jobs:
       - name: Build Windows
         if: runner.os == 'Windows'
         run: npm run build
+      - name: Prepare WebView2 Runtime
+        if: runner.os == 'Windows'
+        shell: pwsh
+        timeout-minutes: 5
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not (& ./scripts/find-webview2.ps1 -Optional)) {
+            choco install webview2-runtime --yes --no-progress --limit-output
+            if ($LASTEXITCODE -notin @(0, 1641, 3010)) { throw "WebView2 installation failed: $LASTEXITCODE" }
+          }
+          $runtimePath = & ./scripts/find-webview2.ps1
+          Write-Host "WebView2 Runtime: $runtimePath"
+          exit 0
       - name: Verify Windows executable
         if: runner.os == 'Windows'
+        timeout-minutes: 5
         run: npm run test:native
+      - name: Upload native diagnostics
+        if: always() && runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-checks-win-x64
+          path: artifacts/native/
+          if-no-files-found: ignore
       - name: Package Windows
         if: runner.os == 'Windows'
         shell: pwsh
-        env:
-          RELEASE_VERSION: ${{ needs.version.outputs.version }}
         run: |
           $ErrorActionPreference = 'Stop'
           New-Item -ItemType Directory -Force publish/licenses, release-assets | Out-Null
@@ -91,7 +96,7 @@ jobs:
           Copy-Item licenses/*.txt publish/licenses/
           Copy-Item README.md publish/README.md
           Copy-Item -Recurse docs publish/docs
-          Compress-Archive -Path publish/* -DestinationPath "release-assets/ApiConfigTool-win-x64-v$env:RELEASE_VERSION.zip"
+          Compress-Archive -Path publish/* -DestinationPath "release-assets/ApiConfigTool-win-x64-$env:RELEASE_TAG.zip"
           Copy-Item publish/ApiConfigTool.exe release-assets/ApiConfigTool.exe
       - name: Build macOS application and disk image
         if: runner.os == 'macOS'
@@ -100,7 +105,6 @@ jobs:
         if: runner.os == 'macOS'
         shell: bash
         env:
-          RELEASE_VERSION: ${{ needs.version.outputs.version }}
           RELEASE_PLATFORM: ${{ matrix.platform }}
           RELEASE_TARGET: ${{ matrix.target }}
         run: |
@@ -110,10 +114,10 @@ jobs:
           cp licenses/*.txt publish/licenses/
           cp README.md publish/
           cp -R docs publish/
-          ditto -c -k --sequesterRsrc publish "release-assets/ApiConfigTool-$RELEASE_PLATFORM-v$RELEASE_VERSION.zip"
+          ditto -c -k --sequesterRsrc publish "release-assets/ApiConfigTool-$RELEASE_PLATFORM-$RELEASE_TAG.zip"
           images=(src-tauri/target/"$RELEASE_TARGET"/release/bundle/dmg/*.dmg)
           test "${#images[@]}" -eq 1
-          cp "${images[0]}" "release-assets/ApiConfigTool-$RELEASE_PLATFORM-v$RELEASE_VERSION.dmg"
+          cp "${images[0]}" "release-assets/ApiConfigTool-$RELEASE_PLATFORM-$RELEASE_TAG.dmg"
       - uses: actions/upload-artifact@v4
         with:
           name: release-${{ matrix.platform }}
@@ -121,7 +125,7 @@ jobs:
           if-no-files-found: error
 
   release:
-    needs: [version, build]
+    needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -132,13 +136,32 @@ jobs:
           pattern: release-*
           merge-multiple: true
           path: release-assets
+      - name: Point v1.0 to the verified commit
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const ref = `tags/${process.env.RELEASE_TAG}`;
+            try {
+              await github.rest.git.getRef({ ...context.repo, ref });
+            } catch (error) {
+              if (error.status !== 404) throw error;
+              await github.rest.git.createRef({ ...context.repo, ref: `refs/${ref}`, sha: context.sha });
+              return;
+            }
+            await github.rest.git.updateRef({ ...context.repo, ref, sha: context.sha, force: true });
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ needs.version.outputs.tag }}
+          tag_name: ${{ env.RELEASE_TAG }}
           target_commitish: ${{ github.sha }}
-          name: Release ${{ needs.version.outputs.tag }}
+          name: Release ${{ env.RELEASE_TAG }}
+          overwrite_files: true
+          make_latest: true
+          fail_on_unmatched_files: true
           body: |
             Codex、Claude Code、Claude Desktop 配置与余额查询工具。
+
+            固定发布版本 v1.0：每次构建成功后更新此 Release 和同名附件。
+            构建提交：${{ github.sha }}
 
             Windows：下载 win-x64 ZIP，需要系统 WebView2 Runtime。
             macOS：Apple Silicon 下载 macos-arm64；Intel 下载 macos-x64。DMG 可拖动安装，ZIP 含应用与文档。
@@ -148,4 +171,4 @@ jobs:
           files: |
             release-assets/*
             licenses/*.txt
-          generate_release_notes: true
+          generate_release_notes: false

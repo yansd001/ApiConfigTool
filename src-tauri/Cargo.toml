@@ -1,6 +1,6 @@
 [package]
 name = "api-config-tool"
-version = "0.1.0"
+version = "1.0.0"
 description = "Codex / Claude Code / Claude Desktop configuration"
 edition = "2021"
 rust-version = "1.85"

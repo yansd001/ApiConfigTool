@@ -63,7 +63,9 @@
 
 ### 下载 macOS 版本
 
-GitHub Releases 同时提供 Windows x64、macOS Apple Silicon（`macos-arm64`）和 Intel（`macos-x64`）。Mac 用户可下载 DMG 拖动安装，也可下载包含 `.app`、文档和许可的 ZIP；最低系统版本为 macOS 11。
+GitHub Releases 固定使用 `v1.0`，每次三个平台构建成功后更新同一 Release、标签所指提交及同名附件，不自动递增版本号。应用内部按工具链要求使用 `1.0.0`。
+
+提供 Windows x64、macOS Apple Silicon（`macos-arm64`）和 Intel（`macos-x64`）。Mac 用户可下载 DMG 拖动安装，也可下载包含 `.app`、文档和许可的 ZIP；最低系统版本为 macOS 11。
 
 当前 macOS 构建未使用 Apple Developer ID 签名或公证，首次打开可能需要在“系统设置 → 隐私与安全性”允许打开。
 
@@ -87,7 +89,7 @@ Codex 按 CC Switch 的方式向 `model_providers.custom.experimental_bearer_tok
 
 ## 开发和构建
 
-需要 Node.js 22.12+、Rust stable；Windows 需要 C++ Build Tools 和 WebView2 Runtime。macOS 需要 Xcode Command Line Tools；其他依赖见 [Tauri 系统依赖](https://v2.tauri.app/start/prerequisites/)。发布流水线在 Windows、macOS ARM 与 Intel runner 上分别测试和构建，全部成功后创建统一版本的 Release。
+需要 Node.js 22.12+、Rust stable；Windows 需要 C++ Build Tools 和 WebView2 Runtime。macOS 需要 Xcode Command Line Tools；其他依赖见 [Tauri 系统依赖](https://v2.tauri.app/start/prerequisites/)。发布流水线在 Windows、macOS ARM 与 Intel runner 上分别测试和构建，全部成功后更新固定的 `v1.0` Release。
 
 ```powershell
 npm ci
@@ -108,6 +110,8 @@ npm run test:native      # Windows 发布构建后，验证真实 EXE 与 WebVie
 ```
 
 Rust 测试使用临时目录，覆盖三种应用的真实文件结构、保存 / 切换、旧配置导入、源码、错误保护、备份与回滚。Playwright 使用模拟的 Tauri IPC 验证界面交互，截图输出 `artifacts/ui/`，不使用真实密钥。Windows 本地默认使用 Edge；CI 安装 Chromium。原生检查通过独立子进程的环境覆盖，将三种应用的写入目标和 WebView2 数据全部隔离到临时目录，验证真实 EXE 的配置切换和关闭提醒。真实服务商 API 和已安装客户端的联网效果需在本机启用后验证。
+
+Windows CI 在原生检查前确认 WebView2 Runtime，缺失时通过 Chocolatey 安装 `webview2-runtime`。启动器在隔离 `LOCALAPPDATA` 前确定运行时路径，并通过 `WEBVIEW2_BROWSER_EXECUTABLE_FOLDER` 明确指定，兼容按用户安装的运行时。调试端口就绪后才连接，应用提前退出或等待超时会给出诊断；启动日志保存到 `artifacts/native/`，由工作流作为 `native-checks-win-x64` 上传，不上传配置库或凭据文件。
 
 ## 上游来源
 
