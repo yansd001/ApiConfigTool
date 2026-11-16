@@ -1,142 +1,114 @@
-# API 配置工具（Codex / Claude Code）
+# API Config Tool
 
-用于管理 Codex 和 Claude Code 第三方 API 的轻量工具，提供 Windows 图形界面和 macOS / Linux 交互式脚本。
+基于 [CC Switch](https://github.com/farion1231/cc-switch) 的界面组件和直连配置逻辑裁剪，专注 **Codex、Claude Code、Claude Desktop** 的 API 配置与账号登录方式切换。
 
-![Windows 配置管理界面](image.png)
+使用 **Tauri 2 + React + TypeScript + Rust**。侧栏只有三个应用，主页面是提供商卡片；添加、编辑配置使用弹窗。
 
-## Windows 图形版
+![提供商列表](docs/images/providers-light.png)
 
-界面参考 CC Switch 的侧栏、配置卡片和启用状态设计。Codex 和 Claude Code 均可保存多套 API 配置，并分别选择一套启用；编辑区保留 Base URL、API Key、模型名称，仅增加可选的配置名称。两边都支持完整配置源码预览与手动编辑。
+## 功能
 
-- 新增、编辑、删除配置；未填写名称时使用接口域名。
-- **保存配置**只更新当前应用的本地配置列表；**启用**才写入配置文件，也可使用**保存并启用**。
-- 启用状态按实际配置文件核对，外部修改后重新回到窗口会刷新状态。
-- 首次打开时读取本机 API 配置，兼容旧版工具的 API / GPT 备份；也可以手动从本机导入。
-- 在不同配置或应用之间查看时暂存未保存的表单与源码（包括尚未修正的语法错误），关闭窗口前提示尚未保存的修改。
-- 支持获取模型列表后点击模型输入框展开选择，也可手动输入模型；密钥默认隐藏。
-- 保留 GPT 账号切换，优先使用当前登录信息，避免用旧备份覆盖已经刷新的令牌。
-- **配置源码**可直接编辑 Codex TOML 或 Claude JSON，支持校验、撤销和展开编辑。
-- **New API 余额**显示在配置卡片中，工具运行时每 5 分钟自动刷新，也可手动刷新。
+- 三个应用各自管理多套自定义提供商：新增、编辑、复制、删除、搜索、启用。
+- 基础配置：名称、Base URL、API Key、模型、备注。没有内置商业提供商或推荐服务。
+- **保存**只更新本地配置库；**启用**才写入应用配置；也可**保存并启用**。
+- 三个应用均可切换为官方账号登录，保留已有登录凭据和 API 配置列表；再次启用配置即可切回 API。
+- 从本机导入，获取模型列表，编辑 TOML / JSON 源码，浅色 / 深色主题。
+- 添加配置后默认查询 New API 账号余额 / Key 额度；支持 CC Switch 格式的自定义余额脚本、测试查询、刷新间隔与关闭查询。
+- 当前使用状态按本机实际文件核对，窗口重新获得焦点时刷新。
+- 兼容旧版工具的 Codex / Claude Code 多配置列表，保留旧文件。
+- 写入前校验和备份；替换失败时恢复本次已修改文件；外部修改冲突时停止写入。
 
-从 GitHub Release 下载 Windows 压缩包或单文件 `ApiConfigTool.exe`，解压后运行。选择 Codex 或 Claude Code，新增配置并填写三项参数，点击“保存并启用”；以后可直接点击配置卡片上的“启用”。配置修改后请重新启动对应应用的会话。
+新版不包含 Skills、提示词、会话管理、MCP 管理、代理服务、本地路由、模型映射、多账号托管或请求用量统计。这些模块也未作为后台依赖加载。应用配置里已有的其他设置在基础配置切换时保留。
 
-每张配置卡片的“启用”旁都有“删除”按钮，确认后即可删除，包括正在启用的配置，无需先切换。删除仅移除工具中的配置记录，已写入本机的 Codex / Claude Code 配置仍会保留。Codex 未登录的用户需使用 Codex 自带的登录流程。
+## 使用
 
-### New API 余额查询
+运行 `ApiConfigTool.exe`，选择应用，点击“添加提供商”，填写服务商给出的完整地址、密钥和模型。点击“保存并启用”后重启对应应用或会话。
 
-支持复用已保存配置中的 Base URL 和 API Key 查询 New API 额度，无需再填写账号密码或管理令牌。Codex 和 Claude Code 的全部已保存配置都会参与查询（包括未启用的配置），相同站点和 Key 合并查询。
+![配置编辑器](docs/images/provider-editor.png)
 
-- 打开工具后查询一次，运行期间每 5 分钟刷新。列表上方“刷新余额”可手动刷新；取消“每 5 分钟”可暂停本次运行的自动刷新。关闭程序后停止查询，不安装后台服务或系统计划任务。
-- **账号余额**：New API 站点需支持 `user_quota` 返回值，且该 Key 开启“允许查询用户额度”（Allow querying user quota）。可以在 New API 的令牌 / API Keys 编辑页面开启；工具不会代为修改服务端权限。
-- **Key 余额**：接口未返回账号额度时，只显示 Key 的剩余额度，并注明“账号余额未开放查询”。Key 不限额并不代表账号余额无限。
-- 金额使用站点 `/api/status` 返回的 `quota_per_unit` 及币种 / 汇率换算，支持 USD、CNY、自定义币种。获取不到有效换算参数时显示原始额度，不猜测美元金额。
-- 鼠标悬停在余额区域，可查看账号 / Key 已用额度、Key 到期时间、更新时间及错误原因。
-- 网络失败保留上次成功结果并标注更新失败。首次失败不会显示为零余额；未支持 New API 接口、Key 无效或权限不足时显示对应状态，自动重试间隔放宽至 30 分钟。
-- 同时最多发起 3 个查询。重复手动刷新间隔至少 10 秒；遇到 HTTP 429 时遵守服务器的 `Retry-After`，手动刷新也不会绕过等待时间。
+- Base URL 的路径原样保留，请按服务商要求填写 `/v1` 等路径。
+- API Key 默认隐藏，不出现在卡片、搜索结果或错误日志中。密钥会写入本地配置库、应用配置及备份文件。
+- 删除只删除工具中的条目，保留已经写入应用的配置。
+- 源码编辑必须通过校验；手动源码作为完整配置保存和启用，其中的额外字段与删除操作会生效。
+- 切换后不需要工具持续运行。没有常驻 API 转发服务。
 
-查询地址从配置地址推导，例如 `https://example.com/v1` 对应 `https://example.com/api/usage/token/`；`https://example.com/gateway/v1` 保留反向代理前缀，查询 `/gateway/api/usage/token/`。仅支持该标准接口；自定义转发路径、旧版本或其他供应商可能不支持。API Key 只放在请求的 Authorization 头中，不放进 URL、日志或公共状态请求，也不跟随重定向。
+### 切换账号登录
 
-当前验证依据及接口字段见 [New API 源码核对记录](docs/new-api-balance.md)。回归测试使用模拟 HTTP 响应与临时配置，不会调用真实 Key；实际账号余额还取决于站点版本、Key 权限及 IP 白名单。
+点击页面上方的“切换到账号登录”，重启对应应用。已有账号继续由应用管理；尚未登录时，在 Codex 中使用 ChatGPT 登录，在 Claude Code 中运行 `/login`，或在 Claude Desktop 登录 Claude 账号。“已选择账号登录”只表示配置方式，不表示已经完成登录或验证账号。
 
-### 配置预览与手动编辑
+- Codex 清理第三方连接与模型覆盖，保留 `auth.json` 中当前登录令牌。默认 profile 的非连接设置继续保留。
+- Claude Code 清理 API 地址、密钥、模型覆盖及第三方协议选择，使用 `claudeai` 登录方式，保留 `.credentials.json`、系统凭据和已有官方 OAuth token。
+- Claude Desktop 切回 `1p`，移除工具的 gateway 配置引用；其他配置项和账号数据保留。
+- 切换前会备份，并与配置库一起提交；后续写入失败时回滚。API 配置列表保留，点击条目的“启用”即可切回。
 
-1. 选择已有配置或新增配置，点击编辑区的“配置源码”。
-2. Codex 显示 `config.toml`，Claude Code 显示 `settings.json`。可以直接修改文本，点击“展开编辑”扩大编辑区。
-3. 点击“校验配置”检查语法和必需字段。语法错误会阻止保存及启用，原文件保持不变。
-4. 返回“基础配置”时，源码中的地址、密钥、模型会同步到表单。再修改基础字段时，额外的自定义字段会保留。
-5. 点击“保存配置”保存当前条目，或“保存并启用”立即写入。
+切换针对本文列出的用户配置文件；终端环境变量、项目配置或启动参数若另外指定 API，需要在相应位置调整。
 
-只打开预览不会固定配置快照，也不会写入文件。**手动修改过的源码或显式导入的配置，会作为该条目的完整配置保存；启用时写入整个文件，包括额外字段及字段删除。** 因此，每套配置可以保存不同的 permissions、features 等设置；外部更新了这些设置后，可从本机重新导入。没有手动源码的基础配置在启用时更新地址、密钥、模型等相关字段，并保留本机其他设置。
+### Claude Desktop
 
-源码包含明文 API Key。Codex 的账号登录仍由 `auth.json` 管理，源码编辑器不编辑账号令牌；`requires_openai_auth` 在启用时按当前登录状态更新。配置库记录的名称会同步到 `model_providers.custom.name`。
+使用 CC Switch 的 **3P gateway 直连配置方式**，写入 `Claude-3p/configLibrary` 并切换 `deploymentMode`，与 Claude Code 的 `settings.json` 分开。
 
-![配置源码编辑器](source-preview.png)
+需要支持第三方 gateway 配置的 Claude Desktop 版本，以及兼容 Anthropic 协议的服务端。模型可留空以使用服务端模型发现；手动指定时必须是 Desktop 接受的 Claude 模型 ID，例如 `claude-sonnet-4-6`。本工具不转换协议、不映射模型，因此不能将任意 OpenAI 模型直接配置成 Claude Desktop 的模型。是否能实际请求还取决于服务商与已安装 Desktop 版本。
 
-### Claude Code 多配置
+使用独立的 Desktop profile ID，保留已有 CC Switch 和其他 Desktop 配置项。
 
-Claude Code 使用独立的配置列表，支持新增、编辑、删除、导入、保存和启用。首次打开时自动识别本机已有 API 配置。支持 `CLAUDE_CONFIG_DIR` 自定义配置目录，接口的自定义路径保持原样。
+### 余额查询
 
-基础配置写入 `env.ANTHROPIC_BASE_URL`、`env.ANTHROPIC_AUTH_TOKEN` 和顶层 `model`，保留其他设置，并清理冲突的旧 `ANTHROPIC_API_KEY`。源码编辑也支持使用 `ANTHROPIC_API_KEY`，两种认证字段只保留一种。无效 JSON、重复字段或不正确的 `env` 类型会被拦截；配置文件和配置库写入失败时执行回滚。
+配置卡片默认使用该配置的 API Key 查询 New API `GET /api/usage/token/`。优先显示账号余额，站点未返回 `user_quota` 时仅显示 Key 额度，并提示账号查询未开放；Key 不限额不代表账号余额无限。金额按站点公开的 `/api/status` 参数换算，无法取得参数时显示原始额度。
 
-### Codex 写入方式
+点击卡片的钱包图标，或编辑器的“余额查询”页，可选择自动查询、自定义脚本或关闭。默认在配置显示后查询，每 5 分钟刷新；间隔可设为 0–1440 分钟，0 表示仅手动查询。查询相同地址、密钥与查询设置时共享缓存；手动刷新至少间隔 10 秒，HTTP 429 按 Retry-After 延后。失败保留上次结果，并明确标为更新失败。
 
-实现对照 CC Switch 源码提交 `a6f0101b9b25600651ebd95008594107603f712a`，重点参考：
+自定义模式支持 CC Switch 的 `({ request: {...}, extractor: function(response) {...} })` 格式、GET / POST、请求头、JSON 或字符串请求体，以及 `{{baseUrl}}`、`{{apiKey}}`、`{{accessToken}}`、`{{userId}}` 占位符。查询 Base URL / API Key 留空时使用基础配置；也可填写独立的面板 Access Token 和 User ID。内置通用模板与 New API 账号模板，点击“测试余额查询”可在保存前检查结果。提取器返回对象或数组，每项包含 `remaining`、`used`、`total` 中至少一个数值，可附 `unit`、`planName`、`extra`；失败可返回 `isValid: false`。详情与示例见 [余额查询说明](docs/balance-query.md)。
 
-- `src-tauri/src/live/project/codex.rs`：第三方配置统一写到 `model_providers.custom`，密钥放在 provider 表的 `experimental_bearer_token`。
-- `src-tauri/src/services/provider/codex_login.rs`：第三方 API 凭据与官方账号登录信息分开处理。
-- `src-tauri/src/codex_config.rs` 的 `write_codex_live_atomic`：先校验，再替换文件，后续写入失败时回滚。
+余额设置仅保存在工具配置库，不写入 Codex / Claude 配置。查询凭据与 API Key 一样以明文保存在本机配置库及备份中。脚本运行于独立 QuickJS 环境，无文件、进程或系统凭据访问；每次执行最多 2 秒、16 MiB 内存。HTTP 请求不跟随重定向，不共享 Cookie，不回显远端错误正文。
 
-生成的配置示例（无官方登录时）：
+### 下载 macOS 版本
 
-```toml
-model_provider = "custom"
-model = "your-model"
+GitHub Releases 同时提供 Windows x64、macOS Apple Silicon（`macos-arm64`）和 Intel（`macos-x64`）。Mac 用户可下载 DMG 拖动安装，也可下载包含 `.app`、文档和许可的 ZIP；最低系统版本为 macOS 11。
 
-[model_providers.custom]
-name = "日常开发"
-base_url = "https://api.example.com/v1"
-wire_api = "responses"
-experimental_bearer_token = "your-api-key"
-requires_openai_auth = false
-```
+当前 macOS 构建未使用 Apple Developer ID 签名或公证，首次打开可能需要在“系统设置 → 隐私与安全性”允许打开。
 
-`auth.json` 保留官方账号登录，旧的 `OPENAI_API_KEY` / `auth_mode = "apikey"` 会在启用 API 时清理；检测到现存账号令牌时，`requires_openai_auth` 设为 `true`。这采用参考项目当前的凭据写法，不再只向 `auth.json` 写第三方 API Key。
+### 配置文件
 
-基础配置切换时保留 MCP、项目信任、features 等共享设置，移除冲突的旧路由字段；手动源码配置使用该条目保存的完整内容。保留名 `openai`、`ollama`、`lmstudio` 下的旧自定义 provider 表迁移到不冲突的名称，并更新对应 Codex profile 引用。TOML 使用解析器更新，保留配置语义与注释，排版可能被规范化。
-
-若 Codex 默认 `profile` 覆盖了目标服务或模型，会提示冲突并停止写入，避免界面显示切换成功而 Codex 实际仍使用其他配置。
-
-写入前检查 TOML / JSON，文件格式错误时停止操作。每个文件通过同目录临时文件替换；认证、配置或配置库后续写入失败时恢复此前已修改的文件。此机制处理运行时写入异常，不代表多个文件在断电时具有完整事务保证。
-
-Windows 版使用的文件：
-
-| 用途 | 默认位置 |
+| 应用 | 默认配置位置 |
 | --- | --- |
-| Codex 配置 | `%USERPROFILE%\.codex\config.toml` |
-| 官方账号认证 | `%USERPROFILE%\.codex\auth.json` |
-| 多配置列表、旧配置及账号备份 | `%USERPROFILE%\.codex\apiconfig_state.json` |
-| 写入互斥锁 | `%USERPROFILE%\.codex\.apiconfig.lock` |
-| Claude Code 配置 | `%USERPROFILE%\.claude\settings.json` |
-| Claude Code 多配置列表和源码 | `%USERPROFILE%\.claude\apiconfig_claude_state.json` |
-| Claude Code 写入互斥锁 | `%USERPROFILE%\.claude\.apiconfig-claude.lock` |
+| Codex | `~/.codex/config.toml`，支持 `CODEX_HOME` |
+| Claude Code | `~/.claude/settings.json`，支持 `CLAUDE_CONFIG_DIR` |
+| Claude Desktop / Windows | `%LOCALAPPDATA%/Claude/claude_desktop_config.json`、`%LOCALAPPDATA%/Claude-3p/claude_desktop_config.json`、`Claude-3p/configLibrary/` |
+| Claude Desktop / macOS | `~/Library/Application Support/Claude/`、`Claude-3p/` |
+| Claude Desktop / Linux | `$XDG_CONFIG_HOME/Claude/`、`Claude-3p/`，默认 `~/.config/` |
+| 工具配置库 | `~/.api-config-tool/{codex,claude,claude-desktop}.json` |
+| 修改前备份 | `~/.api-config-tool/backups/<操作 ID>/`，`manifest.json` 记录原路径 |
 
-Codex 支持 `CODEX_HOME`，Claude Code 支持 `CLAUDE_CONFIG_DIR` 自定义目录。API Key 会保存在本地配置库和启用的配置文件中，不会显示在配置卡片或运行日志中。Codex 基础表单中接口只有域名时自动补 `/v1`，已有 `/api/coding/v3` 等自定义路径保持原样；源码编辑保留用户明确指定的路径。
+`API_CONFIG_TOOL_HOME` 可自定义工具配置库目录。旧版 `apiconfig_state.json` / `apiconfig_claude_state.json` 在对应新版配置库尚不存在时读取，首次保存后写入新版配置库；旧版文件不改动。
 
-## macOS / Linux 终端脚本
+Codex 按 CC Switch 的方式向 `model_providers.custom.experimental_bearer_token` 写入第三方密钥，官方登录令牌保留在 `auth.json`。存在默认 profile 冲突时停止启用并提示修复。
 
-```sh
-chmod +x api-config-tool.sh
-./api-config-tool.sh
-# 或直接进入配置流程
-./api-config-tool.sh --codex
-./api-config-tool.sh --claude
-```
+每个文件以同目录临时文件替换；运行时多文件失败会回滚，并留下修改前备份。该机制不保证断电时的跨文件事务。
 
-终端脚本是独立的单配置流程，需要 Python 3.8+ 或 Node.js 16+。Python 模式可以获取模型列表；Node.js 模式手动输入模型。多配置卡片管理及上面的新 Codex 写入实现适用于 Windows 图形版。
+## 开发和构建
 
-脚本更新已有配置前创建带时间戳的备份，支持 `CODEX_HOME` 和 `CLAUDE_CONFIG_DIR`，默认分别为 `~/.codex` 和 `~/.claude`。
-
-## 本地构建与验证
-
-需要 Windows 和 .NET 9 SDK（或可构建 .NET 9 项目的更新 SDK）：
+需要 Node.js 22.12+、Rust stable；Windows 需要 C++ Build Tools 和 WebView2 Runtime。macOS 需要 Xcode Command Line Tools；其他依赖见 [Tauri 系统依赖](https://v2.tauri.app/start/prerequisites/)。发布流水线在 Windows、macOS ARM 与 Intel runner 上分别测试和构建，全部成功后创建统一版本的 Release。
 
 ```powershell
-dotnet restore
-dotnet build -c Release
-dotnet run --project Tests/ApiConfigTool.Tests.csproj -c Release
+npm ci
+npm run dev             # 桌面程序
+npm run dev:renderer    # 浏览器界面预览，不读写本机配置
+npm run build           # Windows 可执行文件，无安装包
+npm run tauri -- build --bundles app,dmg  # 在 macOS 上生成 .app 与 DMG
 ```
 
-回归检查使用独立临时目录，不读取或改写真实 Codex / Claude Code 配置。覆盖两套应用的多配置保存/启用、旧配置迁移、GPT 令牌保留、源码与表单双向同步、语法校验、独立草稿、损坏文件、写入失败回滚、余额接口解析与调度和 WPF 界面交互。界面预览输出到 `artifacts/ui/`（截图中的余额为模拟值）。
-
-## 发布 Windows 单文件程序
+也可运行 `build-exe.bat`，输出 `publish/ApiConfigTool.exe` 和开源许可文件。Windows 版使用系统 WebView2，自动发布流程使用 Tauri 构建。
 
 ```powershell
-dotnet publish ApiConfigTool.csproj -c Release -r win-x64 --self-contained true `
-  -p:PublishSingleFile=true `
-  -p:IncludeNativeLibrariesForSelfExtract=true `
-  -o publish
+npm run typecheck
+npm test
+npm run test:backend
+npm run test:e2e
+npm run test:native      # Windows 发布构建后，验证真实 EXE 与 WebView2
 ```
 
-输出：`publish/ApiConfigTool.exe`。
+Rust 测试使用临时目录，覆盖三种应用的真实文件结构、保存 / 切换、旧配置导入、源码、错误保护、备份与回滚。Playwright 使用模拟的 Tauri IPC 验证界面交互，截图输出 `artifacts/ui/`，不使用真实密钥。Windows 本地默认使用 Edge；CI 安装 Chromium。原生检查通过独立子进程的环境覆盖，将三种应用的写入目标和 WebView2 数据全部隔离到临时目录，验证真实 EXE 的配置切换和关闭提醒。真实服务商 API 和已安装客户端的联网效果需在本机启用后验证。
 
-推送到 `main` 后，GitHub Actions 先运行回归检查，再自动递增补丁版本并创建 Release，发布 Windows 压缩包、Windows 单文件程序和 macOS / Linux 脚本。
+## 上游来源
+
+上游来源、固定提交、裁剪范围见 [CC Switch 来源记录](docs/cc-switch-upstream.md)。复用部分保留 [CC Switch MIT 许可](licenses/CC-Switch-MIT.txt)。自定义余额脚本依赖的 [QuickJS](licenses/QuickJS-MIT.txt) 与 [RQuickJS](licenses/RQuickJS-MIT.txt) 许可随发布包提供。

@@ -2,104 +2,150 @@ name: Build and Release
 
 on:
   push:
-    branches:
-      - main
-    paths-ignore:
-      - "**.md"
-      - ".gitignore"
+    branches: [main]
+    paths-ignore: ["**.md", "docs/**", ".gitignore"]
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  release:
-    runs-on: windows-latest
-
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+      - uses: actions/setup-node@v4
         with:
-          dotnet-version: "9.0.x"
+          node-version: "22"
+      - id: version
+        run: node scripts/release-version.mjs --next
 
-      - name: Determine next version
-        id: version
+  build:
+    needs: version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: win-x64
+            target: x86_64-pc-windows-msvc
+          - os: macos-15
+            platform: macos-arm64
+            target: aarch64-apple-darwin
+          - os: macos-15-intel
+            platform: macos-x64
+            target: x86_64-apple-darwin
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          key: ${{ matrix.target }}
+      - run: npm ci
+      - run: node scripts/release-version.mjs ${{ needs.version.outputs.version }}
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run test:backend
+      - run: npx playwright install chromium
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ui-checks-${{ matrix.platform }}
+          path: |
+            artifacts/ui/
+            test-results/
+          if-no-files-found: ignore
+      - name: Build Windows
+        if: runner.os == 'Windows'
+        run: npm run build
+      - name: Verify Windows executable
+        if: runner.os == 'Windows'
+        run: npm run test:native
+      - name: Package Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force publish/licenses, release-assets | Out-Null
+          Copy-Item src-tauri/target/release/api-config-tool.exe publish/ApiConfigTool.exe
+          Copy-Item licenses/*.txt publish/licenses/
+          Copy-Item README.md publish/README.md
+          Copy-Item -Recurse docs publish/docs
+          Compress-Archive -Path publish/* -DestinationPath "release-assets/ApiConfigTool-win-x64-v$env:RELEASE_VERSION.zip"
+          Copy-Item publish/ApiConfigTool.exe release-assets/ApiConfigTool.exe
+      - name: Build macOS application and disk image
+        if: runner.os == 'macOS'
+        run: npm run tauri -- build --target ${{ matrix.target }} --bundles app,dmg
+      - name: Package macOS
+        if: runner.os == 'macOS'
         shell: bash
+        env:
+          RELEASE_VERSION: ${{ needs.version.outputs.version }}
+          RELEASE_PLATFORM: ${{ matrix.platform }}
+          RELEASE_TARGET: ${{ matrix.target }}
         run: |
           set -euo pipefail
-          latest="$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n 1 || true)"
-          if [[ -z "${latest}" ]]; then
-            next="0.0.1"
-          else
-            ver="${latest#v}"
-            IFS='.' read -r major minor patch <<< "${ver}"
-            next="${major}.${minor}.$((patch + 1))"
-          fi
-          echo "version=${next}" >> "${GITHUB_OUTPUT}"
-          echo "tag=v${next}" >> "${GITHUB_OUTPUT}"
-          echo "Next version: v${next}"
-
-      - name: Verify configuration switching and WPF UI
-        shell: pwsh
-        run: dotnet run --project Tests/ApiConfigTool.Tests.csproj -c Release
-
-      - name: Publish single-file exe
-        shell: pwsh
-        run: |
-          dotnet publish `
-            -c Release `
-            -r win-x64 `
-            --self-contained true `
-            -p:PublishSingleFile=true `
-            -p:IncludeNativeLibrariesForSelfExtract=true `
-            -p:EnableCompressionInSingleFile=true `
-            -p:Version=${{ steps.version.outputs.version }} `
-            -p:AssemblyVersion=${{ steps.version.outputs.version }}.0 `
-            -p:FileVersion=${{ steps.version.outputs.version }}.0 `
-            -o publish
-
-      - name: Package artifacts
-        shell: pwsh
-        run: |
-          $version = "${{ steps.version.outputs.version }}"
-          $zipName = "ApiConfigTool-win-x64-v$version.zip"
-          if (-not (Test-Path "publish/ApiConfigTool.exe")) {
-            throw "publish/ApiConfigTool.exe not found"
-          }
-          if (-not (Test-Path "api-config-tool.sh")) {
-            throw "api-config-tool.sh not found"
-          }
-          Compress-Archive -Path "publish/ApiConfigTool.exe" -DestinationPath $zipName -Force
-          "artifact=$zipName" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-        id: package
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+          mkdir -p publish/licenses release-assets
+          cp -R "src-tauri/target/$RELEASE_TARGET/release/bundle/macos/API Config Tool.app" publish/
+          cp licenses/*.txt publish/licenses/
+          cp README.md publish/
+          cp -R docs publish/
+          ditto -c -k --sequesterRsrc publish "release-assets/ApiConfigTool-$RELEASE_PLATFORM-v$RELEASE_VERSION.zip"
+          images=(src-tauri/target/"$RELEASE_TARGET"/release/bundle/dmg/*.dmg)
+          test "${#images[@]}" -eq 1
+          cp "${images[0]}" "release-assets/ApiConfigTool-$RELEASE_PLATFORM-v$RELEASE_VERSION.dmg"
+      - uses: actions/upload-artifact@v4
         with:
-          tag_name: ${{ steps.version.outputs.tag }}
-          name: Release ${{ steps.version.outputs.tag }}
+          name: release-${{ matrix.platform }}
+          path: release-assets/*
+          if-no-files-found: error
+
+  release:
+    needs: [version, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          merge-multiple: true
+          path: release-assets
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: Release ${{ needs.version.outputs.tag }}
           body: |
-            ## API Config Tool ${{ steps.version.outputs.tag }}
+            Codex、Claude Code、Claude Desktop 配置与余额查询工具。
 
-            Codex / Claude Code 第三方 API 配置工具。
+            Windows：下载 win-x64 ZIP，需要系统 WebView2 Runtime。
+            macOS：Apple Silicon 下载 macos-arm64；Intel 下载 macos-x64。DMG 可拖动安装，ZIP 含应用与文档。
+            macOS 构建暂未使用 Apple Developer ID 签名或公证。首次打开可能需要在“系统设置 → 隐私与安全性”允许打开。
 
-            ### 下载文件
-            - `ApiConfigTool-win-x64-v${{ steps.version.outputs.version }}.zip` — Windows 推荐下载
-            - `ApiConfigTool.exe` — Windows 单文件程序
-            - `api-config-tool.sh` — macOS / Linux 交互式终端脚本
-
-            **提交：** `${{ github.sha }}`
+            支持 API / 官方账号方式切换、默认 New API 余额查询，以及 CC Switch 格式的自定义余额脚本。
           files: |
-            ${{ steps.package.outputs.artifact }}
-            publish/ApiConfigTool.exe
-            api-config-tool.sh
-          draft: false
-          prerelease: false
+            release-assets/*
+            licenses/*.txt
           generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
