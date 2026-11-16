@@ -65,9 +65,9 @@
 
 GitHub Releases 固定使用 `v1.0`，每次三个平台构建成功后更新同一 Release、标签所指提交及同名附件，不自动递增版本号。应用内部按工具链要求使用 `1.0.0`。
 
-发布附件仅提供 ZIP、DMG 和 EXE，工作流会在上传成功后清理该 Release 中其他类型的旧附件。第三方许可内置于程序，并随 ZIP 和 macOS 应用打包，不再单独上传 TXT。GitHub 自动提供的源码下载入口仍会显示。
+发布附件仅提供 ZIP、DMG 和 EXE，工作流会在上传成功后清理该 Release 中其他类型的旧附件。ZIP 解压后只有 Windows 的 `ApiConfigTool.exe` 或 macOS 的 `API Config Tool.app`，不附带 README、docs 或 licenses 文件夹。第三方许可内置于程序，不再单独上传 TXT。GitHub 自动提供的源码下载入口仍会显示。
 
-提供 Windows x64、macOS Apple Silicon（`macos-arm64`）和 Intel（`macos-x64`）。Mac 用户可下载 DMG 拖动安装，也可下载包含 `.app`、文档和许可的 ZIP；最低系统版本为 macOS 11。
+提供 Windows x64、macOS Apple Silicon（`macos-arm64`）和 Intel（`macos-x64`）。Mac 用户可下载 DMG 拖动安装，也可下载仅包含 `.app` 的 ZIP；最低系统版本为 macOS 11。
 
 当前 macOS 构建未使用 Apple Developer ID 签名或公证，首次打开可能需要在“系统设置 → 隐私与安全性”允许打开。
 
@@ -101,7 +101,7 @@ npm run build           # Windows 可执行文件，无安装包
 npm run tauri -- build --bundles app,dmg  # 在 macOS 上生成 .app 与 DMG
 ```
 
-也可运行 `build-exe.bat`，输出 `publish/ApiConfigTool.exe` 和开源许可文件。Windows 版使用系统 WebView2，自动发布流程使用 Tauri 构建。
+也可运行 `build-exe.bat`，输出目录中只有 `publish/ApiConfigTool.exe`，开源许可内置于程序。Windows 版使用系统 WebView2，自动发布流程使用 Tauri 构建。
 
 开发时可按需手动运行以下检查：
 

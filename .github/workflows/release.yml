@@ -54,13 +54,9 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          New-Item -ItemType Directory -Force publish/licenses, release-assets | Out-Null
-          Copy-Item src-tauri/target/release/api-config-tool.exe publish/ApiConfigTool.exe
-          Copy-Item licenses/*.txt publish/licenses/
-          Copy-Item README.md publish/README.md
-          Copy-Item -Recurse docs publish/docs
-          Compress-Archive -Path publish/* -DestinationPath "release-assets/ApiConfigTool-win-x64-$env:RELEASE_TAG.zip"
-          Copy-Item publish/ApiConfigTool.exe release-assets/ApiConfigTool.exe
+          New-Item -ItemType Directory -Force release-assets | Out-Null
+          Copy-Item src-tauri/target/release/api-config-tool.exe release-assets/ApiConfigTool.exe
+          Compress-Archive -Path release-assets/ApiConfigTool.exe -DestinationPath "release-assets/ApiConfigTool-win-x64-$env:RELEASE_TAG.zip"
       - name: Build macOS application and disk image
         if: runner.os == 'macOS'
         run: npm run tauri -- build --target ${{ matrix.target }} --bundles app,dmg
@@ -72,12 +68,8 @@ jobs:
           RELEASE_TARGET: ${{ matrix.target }}
         run: |
           set -euo pipefail
-          mkdir -p publish/licenses release-assets
-          cp -R "src-tauri/target/$RELEASE_TARGET/release/bundle/macos/API Config Tool.app" publish/
-          cp licenses/*.txt publish/licenses/
-          cp README.md publish/
-          cp -R docs publish/
-          ditto -c -k --sequesterRsrc publish "release-assets/ApiConfigTool-$RELEASE_PLATFORM-$RELEASE_TAG.zip"
+          mkdir -p release-assets
+          ditto -c -k --norsrc --keepParent "src-tauri/target/$RELEASE_TARGET/release/bundle/macos/API Config Tool.app" "release-assets/ApiConfigTool-$RELEASE_PLATFORM-$RELEASE_TAG.zip"
           images=(src-tauri/target/"$RELEASE_TARGET"/release/bundle/dmg/*.dmg)
           test "${#images[@]}" -eq 1
           cp "${images[0]}" "release-assets/ApiConfigTool-$RELEASE_PLATFORM-$RELEASE_TAG.dmg"
@@ -129,8 +121,8 @@ jobs:
             固定发布版本 v1.0：每次构建成功后更新此 Release 和同名附件。
             构建提交：${{ github.sha }}
 
-            Windows：下载 win-x64 ZIP，需要系统 WebView2 Runtime。
-            macOS：Apple Silicon 下载 macos-arm64；Intel 下载 macos-x64。DMG 可拖动安装，ZIP 含应用与文档。
+            Windows：下载 win-x64 ZIP，解压后只有 ApiConfigTool.exe，需要系统 WebView2 Runtime。
+            macOS：Apple Silicon 下载 macos-arm64；Intel 下载 macos-x64。DMG 可拖动安装，ZIP 解压后只有 API Config Tool.app。
             macOS 构建暂未使用 Apple Developer ID 签名或公证。首次打开可能需要在“系统设置 → 隐私与安全性”允许打开。
 
             支持 API / 官方账号方式切换、默认 New API 余额查询，以及自定义余额脚本。
