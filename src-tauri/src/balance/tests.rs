@@ -79,6 +79,9 @@ fn serve(responses: Vec<String>) -> (String, std::thread::JoinHandle<Vec<String>
                     Err(e) => panic!("fixture accept: {e}"),
                 }
             };
+            // macOS can inherit the listener's nonblocking mode on accepted sockets.
+            // Restore blocking I/O so the read timeout also applies while data arrives.
+            stream.set_nonblocking(false).unwrap();
             stream
                 .set_read_timeout(Some(Duration::from_secs(5)))
                 .unwrap();
