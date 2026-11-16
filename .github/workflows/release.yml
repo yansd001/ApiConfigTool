@@ -84,7 +84,10 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: release-${{ matrix.platform }}
-          path: release-assets/*
+          path: |
+            release-assets/*.zip
+            release-assets/*.dmg
+            release-assets/*.exe
           if-no-files-found: error
 
   release:
@@ -130,8 +133,30 @@ jobs:
             macOS：Apple Silicon 下载 macos-arm64；Intel 下载 macos-x64。DMG 可拖动安装，ZIP 含应用与文档。
             macOS 构建暂未使用 Apple Developer ID 签名或公证。首次打开可能需要在“系统设置 → 隐私与安全性”允许打开。
 
-            支持 API / 官方账号方式切换、默认 New API 余额查询，以及 CC Switch 格式的自定义余额脚本。
+            支持 API / 官方账号方式切换、默认 New API 余额查询，以及自定义余额脚本。
           files: |
-            release-assets/*
-            licenses/*.txt
+            release-assets/*.zip
+            release-assets/*.dmg
+            release-assets/*.exe
           generate_release_notes: false
+      - name: Keep only application downloads in v1.0
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: release } = await github.rest.repos.getReleaseByTag({
+              ...context.repo,
+              tag: process.env.RELEASE_TAG,
+            });
+            const assets = await github.paginate(github.rest.repos.listReleaseAssets, {
+              ...context.repo,
+              release_id: release.id,
+              per_page: 100,
+            });
+            for (const asset of assets) {
+              if (/\.(zip|dmg|exe)$/i.test(asset.name)) continue;
+              await github.rest.repos.deleteReleaseAsset({
+                ...context.repo,
+                asset_id: asset.id,
+              });
+              core.info(`Removed obsolete release attachment: ${asset.name}`);
+            }

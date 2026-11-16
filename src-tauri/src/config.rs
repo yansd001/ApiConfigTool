@@ -1,5 +1,4 @@
-// Direct configuration projection derived from CC Switch (MIT, Jason Young).
-// See docs/cc-switch-upstream.md for the pinned upstream files and adaptations.
+// Direct client configuration. Third-party notices: licenses/THIRD-PARTY-NOTICES.txt.
 use crate::{
     files::{self, Edit, Result},
     store::{AppId, Paths, Profile},
@@ -7,7 +6,7 @@ use crate::{
 use serde_json::{json, Value};
 use toml_edit::{value, DocumentMut, Item, Table};
 
-// A separate profile ID avoids overwriting CC Switch's own Desktop profile.
+// A separate profile ID avoids overwriting other Desktop profiles.
 pub const DESKTOP_ID: &str = "50f0a33c-e463-4c45-9eb0-120a99381f21";
 
 pub fn validate_url(input: &str) -> Result<String> {
@@ -52,7 +51,7 @@ pub fn validate(app: AppId, mut p: Profile) -> Result<Profile> {
     Ok(p)
 }
 
-// Copied from CC Switch's is_claude_safe_model_id, without the routing path.
+// Accept model identifiers supported by Desktop's direct gateway configuration.
 pub fn desktop_model(model: &str) -> bool {
     let normalized = model.trim().to_ascii_lowercase();
     if normalized.contains("[1m]") {

@@ -2,7 +2,7 @@
   "name": "api-config-tool",
   "version": "1.0.0",
   "private": true,
-  "description": "Focused Codex, Claude Code and Claude Desktop configuration, derived from CC Switch",
+  "description": "Codex, Claude Code and Claude Desktop configuration and balance queries",
   "type": "module",
   "scripts": {
     "dev": "tauri dev",

@@ -1,4 +1,4 @@
-// CC Switch v7 design tokens, trimmed to the configuration UI.
+// Third-party notices: licenses/THIRD-PARTY-NOTICES.txt.
 module.exports = {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   darkMode: ["selector", ".dark"],

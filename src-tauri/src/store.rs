@@ -110,7 +110,7 @@ impl Paths {
             if exact.exists() {
                 return exact;
             }
-            // CC Switch also recognizes versioned Windows Claude installations.
+            // Recognize versioned Windows Claude installations.
             #[cfg(target_os = "windows")]
             if let Ok(entries) = fs::read_dir(&desktop_base) {
                 let mut candidates: Vec<_> = entries

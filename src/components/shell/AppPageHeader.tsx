@@ -1,4 +1,4 @@
-// Simplified from CC Switch's AppPageHeader: native title bar, configuration actions only.
+// Third-party notices: licenses/THIRD-PARTY-NOTICES.txt.
 import type { ReactNode } from "react";
 import { AppGlyph } from "./AppGlyph";
 import { appNames, type AppId } from "@/lib/api";
@@ -22,8 +22,7 @@ export function AppPageHeader({
     </header>
   );
 }
-// Upstream dialogs use this component for custom title bars. Native window chrome
-// handles dragging in this edition, so no invisible overlay captures clicks.
+// Native window chrome handles dragging; the dialog needs no drag overlay.
 export function ModalDragStrip() {
   return null;
 }

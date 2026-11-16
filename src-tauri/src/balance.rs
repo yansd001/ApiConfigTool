@@ -1,4 +1,4 @@
-//! Automatic New API balances and bounded, CC Switch-style custom queries.
+//! Automatic New API balances and bounded custom queries.
 use crate::{balance_script, config, files::Result, store::Profile};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

@@ -1,4 +1,4 @@
-// CC Switch's sidebar structure, reduced to the three supported applications.
+// Third-party notices: licenses/THIRD-PARTY-NOTICES.txt.
 import {
   ArrowLeftRight,
   PanelLeftClose,

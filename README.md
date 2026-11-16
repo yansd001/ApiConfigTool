@@ -1,6 +1,6 @@
 # API Config Tool
 
-基于 [CC Switch](https://github.com/farion1231/cc-switch) 的界面组件和直连配置逻辑裁剪，专注 **Codex、Claude Code、Claude Desktop** 的 API 配置与账号登录方式切换。
+专注 **Codex、Claude Code、Claude Desktop** 的 API 配置、账号登录方式切换与余额查询。
 
 使用 **Tauri 2 + React + TypeScript + Rust**。侧栏只有三个应用，主页面是提供商卡片；添加、编辑配置使用弹窗。
 
@@ -13,7 +13,7 @@
 - **保存**只更新本地配置库；**启用**才写入应用配置；也可**保存并启用**。
 - 三个应用均可切换为官方账号登录，保留已有登录凭据和 API 配置列表；再次启用配置即可切回 API。
 - 从本机导入，获取模型列表，编辑 TOML / JSON 源码，浅色 / 深色主题。
-- 添加配置后默认查询 New API 账号余额 / Key 额度；支持 CC Switch 格式的自定义余额脚本、测试查询、刷新间隔与关闭查询。
+- 添加配置后默认查询 New API 账号余额 / Key 额度；支持自定义余额脚本、测试查询、刷新间隔与关闭查询。
 - 当前使用状态按本机实际文件核对，窗口重新获得焦点时刷新。
 - 兼容旧版工具的 Codex / Claude Code 多配置列表，保留旧文件。
 - 写入前校验和备份；替换失败时恢复本次已修改文件；外部修改冲突时停止写入。
@@ -45,11 +45,11 @@
 
 ### Claude Desktop
 
-使用 CC Switch 的 **3P gateway 直连配置方式**，写入 `Claude-3p/configLibrary` 并切换 `deploymentMode`，与 Claude Code 的 `settings.json` 分开。
+使用 **3P gateway 直连配置方式**，写入 `Claude-3p/configLibrary` 并切换 `deploymentMode`，与 Claude Code 的 `settings.json` 分开。
 
 需要支持第三方 gateway 配置的 Claude Desktop 版本，以及兼容 Anthropic 协议的服务端。模型可留空以使用服务端模型发现；手动指定时必须是 Desktop 接受的 Claude 模型 ID，例如 `claude-sonnet-4-6`。本工具不转换协议、不映射模型，因此不能将任意 OpenAI 模型直接配置成 Claude Desktop 的模型。是否能实际请求还取决于服务商与已安装 Desktop 版本。
 
-使用独立的 Desktop profile ID，保留已有 CC Switch 和其他 Desktop 配置项。
+使用独立的 Desktop profile ID，保留已有的其他 Desktop 配置项。
 
 ### 余额查询
 
@@ -57,13 +57,15 @@
 
 点击卡片的钱包图标，或编辑器的“余额查询”页，可选择自动查询、自定义脚本或关闭。默认在配置显示后查询，每 5 分钟刷新；间隔可设为 0–1440 分钟，0 表示仅手动查询。查询相同地址、密钥与查询设置时共享缓存；手动刷新至少间隔 10 秒，HTTP 429 按 Retry-After 延后。失败保留上次结果，并明确标为更新失败。
 
-自定义模式支持 CC Switch 的 `({ request: {...}, extractor: function(response) {...} })` 格式、GET / POST、请求头、JSON 或字符串请求体，以及 `{{baseUrl}}`、`{{apiKey}}`、`{{accessToken}}`、`{{userId}}` 占位符。查询 Base URL / API Key 留空时使用基础配置；也可填写独立的面板 Access Token 和 User ID。内置通用模板与 New API 账号模板，点击“测试余额查询”可在保存前检查结果。提取器返回对象或数组，每项包含 `remaining`、`used`、`total` 中至少一个数值，可附 `unit`、`planName`、`extra`；失败可返回 `isValid: false`。详情与示例见 [余额查询说明](docs/balance-query.md)。
+自定义模式支持 `({ request: {...}, extractor: function(response) {...} })` 格式、GET / POST、请求头、JSON 或字符串请求体，以及 `{{baseUrl}}`、`{{apiKey}}`、`{{accessToken}}`、`{{userId}}` 占位符。查询 Base URL / API Key 留空时使用基础配置；也可填写独立的面板 Access Token 和 User ID。内置通用模板与 New API 账号模板，点击“测试余额查询”可在保存前检查结果。提取器返回对象或数组，每项包含 `remaining`、`used`、`total` 中至少一个数值，可附 `unit`、`planName`、`extra`；失败可返回 `isValid: false`。详情与示例见 [余额查询说明](docs/balance-query.md)。
 
 余额设置仅保存在工具配置库，不写入 Codex / Claude 配置。查询凭据与 API Key 一样以明文保存在本机配置库及备份中。脚本运行于独立 QuickJS 环境，无文件、进程或系统凭据访问；每次执行最多 2 秒、16 MiB 内存。HTTP 请求不跟随重定向，不共享 Cookie，不回显远端错误正文。
 
 ### 下载 macOS 版本
 
 GitHub Releases 固定使用 `v1.0`，每次三个平台构建成功后更新同一 Release、标签所指提交及同名附件，不自动递增版本号。应用内部按工具链要求使用 `1.0.0`。
+
+发布附件仅提供 ZIP、DMG 和 EXE，工作流会在上传成功后清理该 Release 中其他类型的旧附件。第三方许可内置于程序，并随 ZIP 和 macOS 应用打包，不再单独上传 TXT。GitHub 自动提供的源码下载入口仍会显示。
 
 提供 Windows x64、macOS Apple Silicon（`macos-arm64`）和 Intel（`macos-x64`）。Mac 用户可下载 DMG 拖动安装，也可下载包含 `.app`、文档和许可的 ZIP；最低系统版本为 macOS 11。
 
@@ -83,7 +85,7 @@ GitHub Releases 固定使用 `v1.0`，每次三个平台构建成功后更新同
 
 `API_CONFIG_TOOL_HOME` 可自定义工具配置库目录。旧版 `apiconfig_state.json` / `apiconfig_claude_state.json` 在对应新版配置库尚不存在时读取，首次保存后写入新版配置库；旧版文件不改动。
 
-Codex 按 CC Switch 的方式向 `model_providers.custom.experimental_bearer_token` 写入第三方密钥，官方登录令牌保留在 `auth.json`。存在默认 profile 冲突时停止启用并提示修复。
+Codex 向 `model_providers.custom.experimental_bearer_token` 写入第三方密钥，官方登录令牌保留在 `auth.json`。存在默认 profile 冲突时停止启用并提示修复。
 
 每个文件以同目录临时文件替换；运行时多文件失败会回滚，并留下修改前备份。该机制不保证断电时的跨文件事务。
 
@@ -115,6 +117,6 @@ Rust 测试使用临时目录，覆盖三种应用的真实文件结构、保存
 
 手动运行原生检查前需安装 WebView2 Runtime。启动器在隔离 `LOCALAPPDATA` 前确定运行时路径，并通过 `WEBVIEW2_BROWSER_EXECUTABLE_FOLDER` 明确指定，兼容按用户安装的运行时。调试端口就绪后才连接，应用提前退出或等待超时会给出诊断；启动日志保存到 `artifacts/native/`，不包含配置库或凭据文件。
 
-## 上游来源
+## 开源许可
 
-上游来源、固定提交、裁剪范围见 [CC Switch 来源记录](docs/cc-switch-upstream.md)。复用部分保留 [CC Switch MIT 许可](licenses/CC-Switch-MIT.txt)。自定义余额脚本依赖的 [QuickJS](licenses/QuickJS-MIT.txt) 与 [RQuickJS](licenses/RQuickJS-MIT.txt) 许可随发布包提供。
+复用组件和依赖的版权声明与许可统一保存在[第三方许可](licenses/THIRD-PARTY-NOTICES.txt)中，并随程序和发布包提供。

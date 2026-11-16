@@ -1,5 +1,5 @@
 //! Switch native clients back to their own account login, without managing OAuth.
-//! Desktop's 1p restoration and Claude field ownership follow CC Switch's direct projection.
+//! Third-party notices: licenses/THIRD-PARTY-NOTICES.txt.
 use crate::{
     config::{self, DESKTOP_ID},
     files::{self, Edit, Result},

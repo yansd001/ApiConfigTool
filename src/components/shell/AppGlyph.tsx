@@ -1,4 +1,4 @@
-// Adapted from CC Switch src/components/shell/AppGlyph.tsx (MIT).
+// Third-party notices: licenses/THIRD-PARTY-NOTICES.txt.
 import { Monitor, Terminal } from "lucide-react";
 import type { AppId } from "@/lib/api";
 import claude from "@/assets/claude.svg";

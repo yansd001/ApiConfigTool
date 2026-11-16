@@ -229,7 +229,7 @@ export function BalanceSettings({
                   required
                 />
                 <p className="field-hint">
-                  兼容 CC Switch 的 request / extractor 格式；支持{" "}
+                  使用 request / extractor 格式；支持{" "}
                   {"{{baseUrl}}"}、{"{{apiKey}}"}、{"{{accessToken}}"}、
                   {"{{userId}}"}。脚本请求指定地址，返回
                   remaining、used、total、unit，可返回多个套餐。

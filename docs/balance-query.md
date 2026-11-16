@@ -6,7 +6,7 @@
 
 ## 自定义脚本
 
-编辑配置 → 余额查询 → 自定义脚本。支持 CC Switch 的同步 `request` / `extractor` 格式；不支持在提取器中自行调用 `fetch` 或读取系统文件。
+编辑配置 → 余额查询 → 自定义脚本。支持同步 `request` / `extractor` 格式；不支持在提取器中自行调用 `fetch` 或读取系统文件。
 
 ```javascript
 ({

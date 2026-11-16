@@ -1,4 +1,4 @@
-//! CC Switch-compatible request / extractor scripts, isolated from filesystem and host APIs.
+//! Request / extractor scripts, isolated from filesystem and host APIs.
 use crate::{balance::BalanceConfig, files::Result, store::Profile};
 use rquickjs::{Context, Function, Object, Runtime};
 use serde::Deserialize;
