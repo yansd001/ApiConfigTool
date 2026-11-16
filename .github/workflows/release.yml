@@ -94,7 +94,7 @@ jobs:
           pattern: release-*
           merge-multiple: true
           path: release-assets
-      - name: Point v1.0 to the built commit
+      - name: Create v1.0 only if missing
         uses: actions/github-script@v7
         with:
           script: |
@@ -104,9 +104,7 @@ jobs:
             } catch (error) {
               if (error.status !== 404) throw error;
               await github.rest.git.createRef({ ...context.repo, ref: `refs/${ref}`, sha: context.sha });
-              return;
             }
-            await github.rest.git.updateRef({ ...context.repo, ref, sha: context.sha, force: true });
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.RELEASE_TAG }}
@@ -119,7 +117,9 @@ jobs:
             Codex、Claude Code、Claude Desktop 配置与余额查询工具。
 
             固定发布版本 v1.0：每次构建成功后更新此 Release 和同名附件。
+            已有 v1.0 标签保持不变，本次构建源码以以下提交为准。
             构建提交：${{ github.sha }}
+            源码：https://github.com/${{ github.repository }}/tree/${{ github.sha }}
 
             Windows：下载 win-x64 ZIP，解压后只有 ApiConfigTool.exe，需要系统 WebView2 Runtime。
             macOS：Apple Silicon 下载 macos-arm64；Intel 下载 macos-x64。DMG 可拖动安装，ZIP 解压后只有 API Config Tool.app。

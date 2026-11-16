@@ -63,7 +63,7 @@
 
 ### 下载 macOS 版本
 
-GitHub Releases 固定使用 `v1.0`，每次三个平台构建成功后更新同一 Release、标签所指提交及同名附件，不自动递增版本号。应用内部按工具链要求使用 `1.0.0`。
+GitHub Releases 固定使用 `v1.0`，每次三个平台构建成功后更新同一 Release 的说明与同名附件，不自动递增版本号。标签仅在不存在时创建，已有标签保持不变，避免本地拉取时发生标签冲突。Release 说明中的构建提交与源码链接对应本次程序，GitHub 自动生成的源码压缩包对应固定标签的提交。应用内部按工具链要求使用 `1.0.0`。
 
 发布附件仅提供 ZIP、DMG 和 EXE，工作流会在上传成功后清理该 Release 中其他类型的旧附件。ZIP 解压后只有 Windows 的 `ApiConfigTool.exe` 或 macOS 的 `API Config Tool.app`，不附带 README、docs 或 licenses 文件夹。第三方许可内置于程序，不再单独上传 TXT。GitHub 自动提供的源码下载入口仍会显示。
 
