@@ -4,9 +4,10 @@
   "permissions": [
     "core:default",
     "core:window:allow-destroy",
+    "dialog:allow-open",
     {
       "identifier": "opener:allow-open-url",
-      "allow": [{ "url": "https://github.com/yansd001/ApiConfigTool" }]
+      "allow": [{ "url": "http://*" }, { "url": "https://*" }]
     }
   ]
 }

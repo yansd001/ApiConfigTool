@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   Check,
@@ -48,6 +48,13 @@ import {
 import { ProviderEditor } from "./components/ProviderEditor";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { BalanceDisplay } from "./components/BalanceDisplay";
+import { SkillsPage } from "./components/SkillsPage";
+
+const TerminalPage = lazy(() =>
+  import("./components/TerminalPage").then((module) => ({
+    default: module.TerminalPage,
+  })),
+);
 
 const projectUrl = "https://github.com/yansd001/ApiConfigTool";
 
@@ -56,6 +63,9 @@ export default function App() {
     const saved = localStorage.getItem("selected-app");
     return apps.includes(saved as AppId) ? (saved as AppId) : "codex";
   });
+  const [section, setSection] = useState<"providers" | "terminal" | "skills">("providers");
+  const [terminalVisited, setTerminalVisited] = useState(false);
+  const [skillsVisited, setSkillsVisited] = useState(false);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -83,6 +93,12 @@ export default function App() {
   const onEditorBusy = useCallback((value: boolean) => {
     mutation.current = value;
     if (value) generation.current++;
+  }, []);
+
+  const navigate = useCallback((next: "providers" | "terminal" | "skills") => {
+    setSection(next);
+    if (next === "terminal") setTerminalVisited(true);
+    if (next === "skills") setSkillsVisited(true);
   }, []);
 
   useEffect(() => {
@@ -192,7 +208,9 @@ export default function App() {
     <div className="app-shell">
       <Sidebar
         app={app}
+        section={section}
         select={setApp}
+        setSection={navigate}
         collapsed={collapsed}
         toggle={() => setCollapsed(!collapsed)}
         dark={dark}
@@ -201,6 +219,8 @@ export default function App() {
         busy={busy}
       />
       <main id="main-content" className="main-content">
+        {section === "providers" && (
+          <>
         <AppPageHeader
           app={app}
           actions={
@@ -510,6 +530,16 @@ export default function App() {
             配置保存在本机
           </span>
         </footer>
+          </>
+        )}
+        <div className={`tool-page-host ${section === "terminal" ? "active" : ""}`}>
+          <Suspense fallback={null}>
+            {terminalVisited && <TerminalPage />}
+          </Suspense>
+        </div>
+        <div className={`tool-page-host ${section === "skills" ? "active" : ""}`}>
+          {skillsVisited && <SkillsPage />}
+        </div>
       </main>
       {toast && (
         <div className="toast" role="status">

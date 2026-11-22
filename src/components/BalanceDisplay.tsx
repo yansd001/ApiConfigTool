@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Loader2, RefreshCw, Wallet } from "lucide-react";
 import {
   api,
@@ -7,7 +7,9 @@ import {
   errorText,
   type BalanceState,
   type Profile,
+  type TopUpInfo,
 } from "@/lib/api";
+import { RechargeDialog } from "./RechargeDialog";
 
 const amount = (value: number, unit: string) =>
   `${value.toLocaleString("zh-CN", { maximumFractionDigits: 4 })} ${unit}`;
@@ -62,6 +64,26 @@ function BalanceQuery({ profile }: { profile: Profile }) {
   const [loading, setLoading] = useState(false);
   const [trigger, setTrigger] = useState({ revision: 0, force: false });
   const [clock, setClock] = useState(Date.now());
+  const [topupInfo, setTopupInfo] = useState<TopUpInfo | null>(null);
+  const [rechargeOpen, setRechargeOpen] = useState(false);
+  const refreshAfterTopup = useCallback(() => {
+    setTrigger((v) => ({ revision: v.revision + 1, force: true }));
+  }, []);
+  useEffect(() => {
+    if (!desktop) return;
+    let cancelled = false;
+    void api
+      .topupInfo(profile)
+      .then((info) => {
+        if (!cancelled && info.enabled && info.paymentMethods.length > 0) setTopupInfo(info);
+      })
+      .catch(() => {
+        if (!cancelled) setTopupInfo(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [profile.baseUrl, profile.apiKey]);
   useEffect(() => {
     if (!desktop || config.mode === "off") return;
     const timer = setInterval(() => {
@@ -108,7 +130,7 @@ function BalanceQuery({ profile }: { profile: Profile }) {
     };
     // profile query fields are represented by the parent's remount key.
   }, [trigger]);
-  if (config.mode === "off") return null;
+  if (config.mode === "off" && !topupInfo) return null;
   const details = [
     value?.note,
     value?.updatedAt
@@ -122,38 +144,61 @@ function BalanceQuery({ profile }: { profile: Profile }) {
     .join("\n");
   return (
     <div className="balance-strip" title={details}>
-      <Wallet size={13} className="balance-icon" />
-      <div className="balance-content">
-        {value ? (
-          <BalanceResult value={value} />
-        ) : (
-          <span>
-            {loading
-              ? "余额查询中…"
-              : config.intervalMinutes === 0
-                ? "余额待查询"
-                : "余额待更新"}
-          </span>
-        )}
-        {value?.note && <span className="balance-note">{value.note}</span>}
-      </div>
-      <button
-        type="button"
-        aria-label={`刷新余额 ${profile.name}`}
-        title={details || "刷新余额"}
-        disabled={
-          loading || !desktop || (value?.canRefreshAt ?? 0) > clock / 1000
-        }
-        onClick={() =>
-          setTrigger((v) => ({ revision: v.revision + 1, force: true }))
-        }
-      >
-        {loading ? (
-          <Loader2 size={13} className="animate-spin" />
-        ) : (
-          <RefreshCw size={13} />
-        )}
-      </button>
+      {config.mode !== "off" && (
+        <>
+          <Wallet size={13} className="balance-icon" />
+          <div className="balance-content">
+            {value ? (
+              <BalanceResult value={value} />
+            ) : (
+              <span>
+                {loading
+                  ? "余额查询中…"
+                  : config.intervalMinutes === 0
+                    ? "余额待查询"
+                    : "余额待更新"}
+              </span>
+            )}
+            {value?.note && <span className="balance-note">{value.note}</span>}
+          </div>
+          <button
+            type="button"
+            aria-label={`刷新余额 ${profile.name}`}
+            title={details || "刷新余额"}
+            disabled={
+              loading || !desktop || (value?.canRefreshAt ?? 0) > clock / 1000
+            }
+            onClick={() =>
+              setTrigger((v) => ({ revision: v.revision + 1, force: true }))
+            }
+          >
+            {loading ? (
+              <Loader2 size={13} className="animate-spin" />
+            ) : (
+              <RefreshCw size={13} />
+            )}
+          </button>
+        </>
+      )}
+      {topupInfo && (
+        <button
+          type="button"
+          className="balance-recharge"
+          aria-label={`充值 ${profile.name}`}
+          title="充值"
+          onClick={() => setRechargeOpen(true)}
+        >
+          充值
+        </button>
+      )}
+      {rechargeOpen && topupInfo && (
+        <RechargeDialog
+          profile={profile}
+          info={topupInfo}
+          onPaid={refreshAfterTopup}
+          onClose={() => setRechargeOpen(false)}
+        />
+      )}
     </div>
   );
 }

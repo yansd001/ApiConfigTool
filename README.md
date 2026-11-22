@@ -14,11 +14,14 @@
 - 三个应用均可切换为官方账号登录，保留已有登录凭据和 API 配置列表；再次启用配置即可切回 API。
 - 从本机导入，获取模型列表，编辑 TOML / JSON 源码，浅色 / 深色主题。
 - 添加配置后默认查询 New API 账号余额 / Key 额度；支持自定义余额脚本、测试查询、刷新间隔与关闭查询。
+- 内置多会话终端，支持选择项目文件夹、跳转工作目录，以及进入 Codex / Claude Code 终端。
+- Skills 管理支持搜索 skills.sh、安装到 Codex 或 Claude Code，以及卸载本机 Skills。
+- 对支持 API 令牌充值接口的服务商显示“充值”，可选择美元金额并展示支付二维码。
 - 当前使用状态按本机实际文件核对，窗口重新获得焦点时刷新。
 - 兼容旧版工具的 Codex / Claude Code 多配置列表，保留旧文件。
 - 写入前校验和备份；替换失败时恢复本次已修改文件；外部修改冲突时停止写入。
 
-新版不包含 Skills、提示词、会话管理、MCP 管理、代理服务、本地路由、模型映射、多账号托管或请求用量统计。这些模块也未作为后台依赖加载。应用配置里已有的其他设置在基础配置切换时保留。
+应用配置里已有的其他设置在基础配置切换时保留。提示词、会话管理、MCP 管理、代理服务、本地路由、模型映射、多账号托管和请求用量统计不属于本工具的管理范围。
 
 ## 使用
 
@@ -60,6 +63,16 @@
 自定义模式支持 `({ request: {...}, extractor: function(response) {...} })` 格式、GET / POST、请求头、JSON 或字符串请求体，以及 `{{baseUrl}}`、`{{apiKey}}`、`{{accessToken}}`、`{{userId}}` 占位符。查询 Base URL / API Key 留空时使用基础配置；也可填写独立的面板 Access Token 和 User ID。内置通用模板与 New API 账号模板，点击“测试余额查询”可在保存前检查结果。提取器返回对象或数组，每项包含 `remaining`、`used`、`total` 中至少一个数值，可附 `unit`、`planName`、`extra`；失败可返回 `isValid: false`。详情与示例见 [余额查询说明](docs/balance-query.md)。
 
 余额设置仅保存在工具配置库，不写入 Codex / Claude 配置。查询凭据与 API Key 一样以明文保存在本机配置库及备份中。脚本运行于独立 QuickJS 环境，无文件、进程或系统凭据访问；每次执行最多 2 秒、16 MiB 内存。HTTP 请求不跟随重定向，不共享 Cookie，不回显远端错误正文。
+
+### 终端和 Skills
+
+侧栏的“终端”使用本机 PTY 创建多个独立会话。选择文件夹后新会话会以该路径为工作目录，快捷按钮会向当前会话发送 `codex`、`claude` 或目录切换命令。终端会话只在桌面应用运行期间存在。
+
+“Skills 管理”从 skills.sh 搜索公开 Skill，安装时从对应的 GitHub 仓库下载包含 `SKILL.md` 的目录，分别保存到 `~/.codex/skills` 或 `~/.claude/skills`。安装需要本机可用 Git 和网络连接。
+
+### API 令牌充值
+
+配置工具会使用当前配置的 API Key 探测 `GET /api/usage/topup/info`。只有服务端返回已启用的在线支付方式时，余额刷新按钮旁才显示“充值”。充值金额按美元整数处理，创建订单后在工具内展示支付二维码。yansdapi 和 lumikeji 提供对应的 `GET /api/usage/topup/info` 与 `POST /api/usage/topup`，由 API 令牌鉴权并复用站点已有的易支付回调。
 
 ### 下载 macOS 版本
 

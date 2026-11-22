@@ -56,6 +56,42 @@ export interface BalanceState {
   nextRetryAt: number;
   canRefreshAt: number;
 }
+export interface PaymentMethod {
+  name: string;
+  kind: string;
+}
+export interface TopUpInfo {
+  enabled: boolean;
+  minAmount: number;
+  amountOptions: number[];
+  paymentMethods: PaymentMethod[];
+}
+export interface Checkout {
+  tradeNo: string;
+  amount: number;
+  money: number;
+  paymentMethod: string;
+  payUrl?: string;
+  mobilePayUrl?: string;
+  qrCode?: string;
+  urlScheme?: string;
+}
+export interface TerminalSession {
+  id: string;
+  workingDirectory: string;
+}
+export interface SkillSearchResult {
+  id: string;
+  source: string;
+  skillId: string;
+  name: string;
+  installs: number;
+}
+export interface InstalledSkill {
+  name: string;
+  app: string;
+  path: string;
+}
 export interface Snapshot {
   profiles: Profile[];
   activeId: string | null;
@@ -102,6 +138,32 @@ export const api = {
     invoke<string[]>("fetch_models", { app, baseUrl, apiKey }),
   balance: (profile: Profile, force = false) =>
     invoke<BalanceState>("fetch_balance", { profile, force }),
+  topupInfo: (profile: Profile) =>
+    invoke<TopUpInfo>("fetch_topup_info", { profile }),
+  createTopup: (profile: Profile, amount: number, paymentMethod: string) =>
+    invoke<Checkout>("create_topup", {
+      profile,
+      amount,
+      paymentMethod,
+    }),
+  topupStatus: (profile: Profile, tradeNo: string) =>
+    invoke<string>("fetch_topup_status", { profile, tradeNo }),
+  terminalOpen: (workingDirectory?: string) =>
+    invoke<TerminalSession>("open_terminal", {
+      workingDirectory: workingDirectory || null,
+    }),
+  terminalInput: (id: string, data: string) =>
+    invoke<void>("terminal_input", { id, data }),
+  terminalResize: (id: string, columns: number, rows: number) =>
+    invoke<void>("terminal_resize", { id, columns, rows }),
+  terminalClose: (id: string) => invoke<void>("close_terminal", { id }),
+  skillsList: () => invoke<InstalledSkill[]>("list_skills"),
+  skillsSearch: (query: string) =>
+    invoke<SkillSearchResult[]>("search_skills", { query }),
+  skillsInstall: (source: string, skillId: string, name: string, app: string) =>
+    invoke<InstalledSkill>("install_skill", { source, skillId, name, app }),
+  skillsRemove: (app: string, name: string) =>
+    invoke<void>("remove_skill", { app, name }),
 };
 export const errorText = (error: unknown) =>
   typeof error === "string"

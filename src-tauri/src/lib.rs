@@ -3,7 +3,10 @@ mod balance;
 mod balance_script;
 mod config;
 mod files;
+mod recharge;
+pub mod skills;
 mod store;
+pub mod terminal;
 #[cfg(test)]
 mod tests;
 use files::Result;
@@ -57,6 +60,28 @@ async fn fetch_balance(
     force: bool,
 ) -> std::result::Result<balance::BalanceState, String> {
     service.query(&profile, force).await
+}
+
+#[tauri::command]
+async fn fetch_topup_info(profile: Profile) -> std::result::Result<recharge::TopUpInfo, String> {
+    recharge::topup_info(&profile).await
+}
+
+#[tauri::command]
+async fn create_topup(
+    profile: Profile,
+    amount: i64,
+    payment_method: String,
+) -> std::result::Result<recharge::Checkout, String> {
+    recharge::create_topup(&profile, amount, &payment_method).await
+}
+
+#[tauri::command]
+async fn fetch_topup_status(
+    profile: Profile,
+    trade_no: String,
+) -> std::result::Result<String, String> {
+    recharge::topup_status(&profile, &trade_no).await
 }
 
 #[tauri::command]
@@ -131,11 +156,13 @@ async fn fetch_models(app: AppId, base_url: String, api_key: String) -> Result<V
 pub fn run() {
     tauri::Builder::default()
         .manage(balance::BalanceService::default())
+        .manage(terminal::TerminalManager::default())
         .plugin(
             tauri_plugin_opener::Builder::new()
                 .open_js_links_on_click(false)
                 .build(),
         )
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.unminimize();
@@ -156,7 +183,18 @@ pub fn run() {
             preview_config,
             parse_config,
             fetch_models,
-            fetch_balance
+            fetch_balance,
+            fetch_topup_info,
+            create_topup,
+            fetch_topup_status,
+            terminal::open_terminal,
+            terminal::terminal_input,
+            terminal::terminal_resize,
+            terminal::close_terminal,
+            skills::list_skills,
+            skills::search_skills,
+            skills::install_skill,
+            skills::remove_skill
         ])
         .run(tauri::generate_context!())
         .expect("API Config Tool could not start");

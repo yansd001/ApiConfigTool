@@ -6,6 +6,8 @@ import {
   Moon,
   Sun,
   Info,
+  Sparkles,
+  TerminalSquare,
 } from "lucide-react";
 import { apps, appNames, appVersion, type AppId } from "@/lib/api";
 import { AppGlyph } from "./AppGlyph";
@@ -13,7 +15,9 @@ import { Button } from "@/components/ui/button";
 
 export function Sidebar({
   app,
+  section,
   select,
+  setSection,
   collapsed,
   toggle,
   dark,
@@ -22,7 +26,9 @@ export function Sidebar({
   busy,
 }: {
   app: AppId;
+  section: "providers" | "terminal" | "skills";
   select: (app: AppId) => void;
+  setSection: (section: "providers" | "terminal" | "skills") => void;
   collapsed: boolean;
   toggle: () => void;
   dark: boolean;
@@ -56,18 +62,46 @@ export function Sidebar({
         {apps.map((id) => (
           <button
             key={id}
-            className={`nav-item ${app === id ? "selected" : ""}`}
-            aria-current={app === id ? "page" : undefined}
+            className={`nav-item ${section === "providers" && app === id ? "selected" : ""}`}
+            aria-current={section === "providers" && app === id ? "page" : undefined}
             aria-label={appNames[id]}
             title={collapsed ? appNames[id] : undefined}
             disabled={busy}
-            onClick={() => select(id)}
+            onClick={() => {
+              select(id);
+              setSection("providers");
+            }}
           >
             <AppGlyph app={id} size={20} />
             <span>{appNames[id]}</span>
-            {app === id && <span className="nav-dot" />}
+            {section === "providers" && app === id && <span className="nav-dot" />}
           </button>
         ))}
+      </nav>
+      <div className="sidebar-section tools-section">工具</div>
+      <nav aria-label="工具">
+        <button
+          className={`nav-item ${section === "terminal" ? "selected" : ""}`}
+          aria-current={section === "terminal" ? "page" : undefined}
+          aria-label="终端"
+          title={collapsed ? "终端" : undefined}
+          onClick={() => setSection("terminal")}
+        >
+          <TerminalSquare size={19} />
+          <span>终端</span>
+          {section === "terminal" && <span className="nav-dot" />}
+        </button>
+        <button
+          className={`nav-item ${section === "skills" ? "selected" : ""}`}
+          aria-current={section === "skills" ? "page" : undefined}
+          aria-label="Skills 管理"
+          title={collapsed ? "Skills 管理" : undefined}
+          onClick={() => setSection("skills")}
+        >
+          <Sparkles size={19} />
+          <span>Skills 管理</span>
+          {section === "skills" && <span className="nav-dot" />}
+        </button>
       </nav>
       <div className="sidebar-bottom">
         <div className="sidebar-note">

@@ -28,6 +28,8 @@ url = "2"
 rquickjs = "0.8"
 tokio = { version = "1", features = ["sync", "rt", "macros", "time"] }
 httpdate = "1"
+portable-pty = "0.9"
+tauri-plugin-dialog = "2"
 
 [profile.release]
 opt-level = "s"

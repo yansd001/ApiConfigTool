@@ -1,7 +1,11 @@
 import { expect, test, type Page } from "@playwright/test";
 
-async function mockDesktop(page: Page) {
-  await page.addInitScript(() => {
+async function mockDesktop(
+  page: Page,
+  topupEnabled = false,
+  topupUnsupported = false,
+) {
+  await page.addInitScript(([topupEnabled, topupUnsupported]) => {
     const profiles: Record<string, any[]> = {
       codex: [
         {
@@ -41,6 +45,7 @@ async function mockDesktop(page: Page) {
       "claude-desktop": null,
     };
     const calls: { command: string; args: any }[] = [];
+    const installedSkills: { name: string; app: string; path: string }[] = [];
     const accountMode: Record<string, boolean> = {
       codex: false,
       claude: true,
@@ -102,6 +107,51 @@ async function mockDesktop(page: Page) {
             canRefreshAt: 0,
           };
         }
+        if (command === "fetch_topup_info" && topupUnsupported)
+          throw "充值接口返回 HTTP 404。";
+        if (command === "fetch_topup_info")
+          return {
+            enabled: topupEnabled,
+            minAmount: 1,
+            amountOptions: [5, 10, 20],
+            paymentMethods: topupEnabled
+              ? [{ name: "支付宝", kind: "alipay" }]
+              : [],
+          };
+        if (command === "create_topup")
+          return {
+            tradeNo: "USR1NOtest123",
+            amount: args.amount,
+            money: args.amount * 7.3,
+            paymentMethod: args.paymentMethod,
+            qrCode: "https://pay.example/checkout/123",
+          };
+        if (command === "fetch_topup_status") return "pending";
+        if (command === "list_skills") return [...installedSkills];
+        if (command === "search_skills")
+          return [
+            {
+              id: "example/skills/sample",
+              source: "example/skills",
+              skillId: "sample",
+              name: "sample",
+              installs: 120,
+            },
+          ];
+        if (command === "install_skill") {
+          const installed = {
+            name: args.skillId,
+            app: args.app,
+            path: `C:\\Users\\demo\\.${args.app}\\skills\\${args.skillId}`,
+          };
+          installedSkills.push(installed);
+          return installed;
+        }
+        if (command === "open_terminal")
+          return {
+            id: crypto.randomUUID(),
+            workingDirectory: args.workingDirectory || "C:\\Users\\demo",
+          };
         if (command === "save_profile") {
           const p = { ...args.profile };
           if (!p.baseUrl.startsWith("http") || !p.apiKey)
@@ -181,12 +231,16 @@ async function mockDesktop(page: Page) {
         return 1;
       },
     };
-  });
+  }, [topupEnabled, topupUnsupported]);
   await page.goto("/");
   await expect(page.getByRole("article", { name: "日常开发" })).toBeVisible();
 }
-test.beforeEach(async ({ page }) => {
-  await mockDesktop(page);
+test.beforeEach(async ({ page }, testInfo) => {
+  await mockDesktop(
+    page,
+    testInfo.title.startsWith("available top-up"),
+    testInfo.title.startsWith("unsupported top-up"),
+  );
 });
 
 test("account login and API configurations switch independently for all three apps", async ({
@@ -246,15 +300,14 @@ test("failed account switch keeps the previous active provider", async ({
   ).toBeDisabled();
 });
 
-test("three apps, configuration-only navigation, card list and themes", async ({
+test("three app configurations, tool navigation, card list and themes", async ({
   page,
 }) => {
   await expect(
     page.getByRole("navigation", { name: "应用配置" }).getByRole("button"),
   ).toHaveCount(3);
-  await expect(
-    page.getByText(/Skills|提示词|会话管理|MCP|本地路由|模型映射/),
-  ).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "终端" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Skills 管理" })).toBeVisible();
   await expect(page.locator('input[type="password"]')).toHaveCount(0);
   await expect(page.getByText("test-daily-key")).toHaveCount(0);
   await expect(page.getByText("自定义提供商", { exact: true })).toHaveCount(0);
@@ -274,6 +327,36 @@ test("three apps, configuration-only navigation, card list and themes", async ({
     ),
   ).toBeTruthy();
   await page.screenshot({ path: "artifacts/ui/providers-compact.png" });
+});
+
+test("skills search results install into the selected client", async ({
+  page,
+}) => {
+  await page.getByRole("button", { name: "Skills 管理" }).click();
+  await page.getByLabel("搜索 Skills").fill("sample skill");
+  await page.getByRole("button", { name: "搜索", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "sample" })).toBeVisible();
+  await page.getByRole("button", { name: "安装", exact: true }).click();
+  await expect(page.getByText("已安装「sample」到 Codex。")).toBeVisible();
+  await expect(
+    page.locator(".installed-skills").getByText("sample", { exact: true }),
+  ).toHaveCount(1);
+});
+
+test("terminal navigation opens multiple sessions and preserves them when switching tools", async ({
+  page,
+}) => {
+  await page.getByRole("button", { name: "终端" }).click();
+  await expect(page.getByRole("tab", { name: "终端 1" })).toBeVisible();
+  await page.getByRole("button", { name: "新终端" }).click();
+  await expect(page.getByRole("tab", { name: "终端 2" })).toBeVisible();
+  await page.getByRole("button", { name: "关闭终端 1" }).click();
+  await page.getByRole("button", { name: "新终端" }).click();
+  await expect(page.getByRole("tab", { name: "终端 3" })).toBeVisible();
+  await page.getByRole("button", { name: "Skills 管理" }).click();
+  await page.getByRole("button", { name: "终端" }).click();
+  await expect(page.getByRole("tab", { name: "终端 2" })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "终端 3" })).toBeVisible();
 });
 
 test("save is separate from activation, apps have independent lists", async ({
@@ -430,6 +513,9 @@ test("desktop offers custom direct configuration and optional model discovery", 
 test("balance defaults to auto, custom query can be tested and persisted without activation", async ({
   page,
 }) => {
+  await expect(page.getByRole("button", { name: "充值 日常开发" })).toHaveCount(
+    0,
+  );
   await expect(page.getByRole("article", { name: "日常开发" })).toContainText(
     "42.5 USD",
   );
@@ -469,6 +555,41 @@ test("balance defaults to auto, custom query can be tested and persisted without
     "https://billing.example",
   );
   await expect(page.getByLabel("查询脚本")).toContainText("extractor");
+});
+
+test("available top-up creates an order and displays its payment QR code", async ({
+  page,
+}) => {
+  await page.getByRole("button", { name: "充值 日常开发" }).click();
+  await page.getByLabel("充值金额").fill("10");
+  await page.getByRole("button", { name: "确定充值" }).click();
+  await expect(page.getByText("订单已创建 · 应付金额 73.00")).toBeVisible();
+  await expect(page.locator(".checkout-result svg")).toBeVisible();
+  const topup = await page.evaluate(() =>
+    (window as any).testCalls.findLast(
+      (call: any) => call.command === "create_topup",
+    ),
+  );
+  expect(topup.args.amount).toBe(10);
+  expect(topup.args.paymentMethod).toBe("alipay");
+});
+
+test("unsupported top-up endpoints hide the recharge button", async ({
+  page,
+}) => {
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (window as any).testCalls.filter(
+            (call: any) => call.command === "fetch_topup_info",
+          ).length,
+      ),
+    )
+    .toBeGreaterThan(0);
+  await expect(
+    page.getByRole("button", { name: "充值 日常开发" }),
+  ).toHaveCount(0);
 });
 
 test("balance errors stay local to a card; off and manual-only settings control requests", async ({
