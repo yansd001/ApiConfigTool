@@ -1,0 +1,80 @@
+{
+  "win32-x64": {
+    "appResources": "8a14f0cc1b/resources/app",
+    "runtime": {
+      "url": "https://vscode.download.prss.microsoft.com/dbazure/download/stable/8a14f0cc1b08d531eb83255ea3764ae22aa932b5/VSCode-win32-x64-1.147.0.zip",
+      "sha256": "42d65f18009959964d7cff8ca6f33149a195d52c08622821c8c681a08469c26e"
+    },
+    "git": {
+      "url": "https://github.com/desktop/dugite-native/releases/download/v2.56.1/dugite-native-v2.56.1-238326e-windows-x64.tar.gz",
+      "sha256": "e9fa2c78952aa2c2154c26dbd4999f93269896e9fc902fa9fe840412d4ffdb04"
+    },
+    "codex": {
+      "url": "https://open-vsx.org/api/openai/chatgpt/win32-x64/26.51117.41037/file/openai.chatgpt-26.51117.41037@win32-x64.vsix",
+      "sha256": "02047e6136bca14a82de6ec501d618e65e70387de0649f23de4bd14f8e2256b3",
+      "version": "26.51117.41037"
+    },
+    "claude": {
+      "url": "https://open-vsx.org/api/Anthropic/claude-code/win32-x64/2.1.330/file/Anthropic.claude-code-2.1.330@win32-x64.vsix",
+      "sha256": "10ab4ba21c2849827e0fb4c4a691b2d7abf26a1bb85b57345af64804357adf05",
+      "version": "2.1.330"
+    },
+    "chinese": {
+      "url": "https://marketplace.visualstudio.com/_apis/public/gallery/publishers/MS-CEINTL/vsextensions/vscode-language-pack-zh-hans/1.131.2026090407/vspackage",
+      "sha256": "0b97f2b719b0c7988bdaff8f3e023c3422feeff0db56379abfaf0c31fe17ef83",
+      "version": "1.131.2026090407"
+    }
+  },
+  "darwin-arm64": {
+    "appResources": "Visual Studio Code.app/Contents/Resources/app",
+    "runtime": {
+      "url": "https://vscode.download.prss.microsoft.com/dbazure/download/stable/8a14f0cc1b08d531eb83255ea3764ae22aa932b5/VSCode-darwin-arm64.zip",
+      "sha256": "149d944feb599b076b48406b174e1c3cd1d510e9d673854777a20a6f4116a59a"
+    },
+    "git": {
+      "url": "https://github.com/desktop/dugite-native/releases/download/v2.56.1/dugite-native-v2.56.1-238326e-macOS-arm64.tar.gz",
+      "sha256": "a882ec6882416b57d212a22bac845ae27944f96cf73453a864f6a12c17863a79"
+    },
+    "codex": {
+      "url": "https://open-vsx.org/api/openai/chatgpt/darwin-arm64/26.51117.41037/file/openai.chatgpt-26.51117.41037@darwin-arm64.vsix",
+      "sha256": "add4a22f32c3a4d57164d1dd9242b03379cce62ab76d03e036b299bc65fe3061",
+      "version": "26.51117.41037"
+    },
+    "claude": {
+      "url": "https://open-vsx.org/api/Anthropic/claude-code/darwin-arm64/2.1.330/file/Anthropic.claude-code-2.1.330@darwin-arm64.vsix",
+      "sha256": "704bf3f636b1b46f55ef3291d6ff33c0bafa957f3a3ca2d73b90efa97b5a050c",
+      "version": "2.1.330"
+    },
+    "chinese": {
+      "url": "https://marketplace.visualstudio.com/_apis/public/gallery/publishers/MS-CEINTL/vsextensions/vscode-language-pack-zh-hans/1.131.2026090407/vspackage",
+      "sha256": "0b97f2b719b0c7988bdaff8f3e023c3422feeff0db56379abfaf0c31fe17ef83",
+      "version": "1.131.2026090407"
+    }
+  },
+  "darwin-x64": {
+    "appResources": "Visual Studio Code.app/Contents/Resources/app",
+    "runtime": {
+      "url": "https://vscode.download.prss.microsoft.com/dbazure/download/stable/8a14f0cc1b08d531eb83255ea3764ae22aa932b5/VSCode-darwin.zip",
+      "sha256": "a91677b96c1a73de366f54cb4a497c8095459e07e95457ffab985820f93fb298"
+    },
+    "git": {
+      "url": "https://github.com/desktop/dugite-native/releases/download/v2.56.1/dugite-native-v2.56.1-238326e-macOS-x64.tar.gz",
+      "sha256": "3fdb0c2f102fe0273d64b5d5fb77315c19f2b4648a154593723cb9ed98f2bc7d"
+    },
+    "codex": {
+      "url": "https://open-vsx.org/api/openai/chatgpt/darwin-x64/26.51117.41037/file/openai.chatgpt-26.51117.41037@darwin-x64.vsix",
+      "sha256": "365996abd6eaa1facd56d0cc338f93915dac644a8a4bf83871268418daf95cae",
+      "version": "26.51117.41037"
+    },
+    "claude": {
+      "url": "https://open-vsx.org/api/Anthropic/claude-code/darwin-x64/2.1.330/file/Anthropic.claude-code-2.1.330@darwin-x64.vsix",
+      "sha256": "f241770a9fa4318bdf3ce5d43ae882addda7819d8977acc0e7aff66f1afa516e",
+      "version": "2.1.330"
+    },
+    "chinese": {
+      "url": "https://marketplace.visualstudio.com/_apis/public/gallery/publishers/MS-CEINTL/vsextensions/vscode-language-pack-zh-hans/1.131.2026090407/vspackage",
+      "sha256": "0b97f2b719b0c7988bdaff8f3e023c3422feeff0db56379abfaf0c31fe17ef83",
+      "version": "1.131.2026090407"
+    }
+  }
+}

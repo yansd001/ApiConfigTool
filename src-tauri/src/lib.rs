@@ -8,6 +8,7 @@ mod recharge;
 pub mod skills;
 mod store;
 pub mod terminal;
+mod workspace;
 #[cfg(test)]
 mod tests;
 use files::Result;
@@ -217,6 +218,10 @@ pub fn run() {
             terminal::terminal_input,
             terminal::terminal_resize,
             terminal::close_terminal,
+            workspace::workspace_status,
+            workspace::recent_workspace_projects,
+            workspace::install_workspace,
+            workspace::open_workspace,
             skills::list_skills,
             skills::search_skills,
             skills::install_skill,

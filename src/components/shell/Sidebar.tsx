@@ -8,8 +8,9 @@ import {
   Info,
   Sparkles,
   TerminalSquare,
+  PanelsTopLeft,
 } from "lucide-react";
-import { apps, appNames, appVersion, type AppId } from "@/lib/api";
+import { apps, appNames, appVersion, type AppId, type Section } from "@/lib/api";
 import { AppGlyph } from "./AppGlyph";
 import { Button } from "@/components/ui/button";
 
@@ -26,9 +27,9 @@ export function Sidebar({
   busy,
 }: {
   app: AppId;
-  section: "providers" | "terminal" | "skills";
+  section: Section;
   select: (app: AppId) => void;
-  setSection: (section: "providers" | "terminal" | "skills") => void;
+  setSection: (section: Section) => void;
   collapsed: boolean;
   toggle: () => void;
   dark: boolean;
@@ -80,6 +81,17 @@ export function Sidebar({
       </nav>
       <div className="sidebar-section tools-section">工具</div>
       <nav aria-label="工具">
+        <button
+          className={`nav-item ${section === "workspace" ? "selected" : ""}`}
+          aria-current={section === "workspace" ? "page" : undefined}
+          aria-label="内置 VS Code"
+          title={collapsed ? "内置 VS Code" : undefined}
+          onClick={() => setSection("workspace")}
+        >
+          <PanelsTopLeft size={19} />
+          <span>内置 VS Code</span>
+          {section === "workspace" && <span className="nav-dot" />}
+        </button>
         <button
           className={`nav-item ${section === "terminal" ? "selected" : ""}`}
           aria-current={section === "terminal" ? "page" : undefined}

@@ -30,6 +30,7 @@ import {
   errorText,
   visibleProfiles,
   type AppId,
+  type Section,
   type Profile,
   type Snapshot,
 } from "./lib/api";
@@ -50,6 +51,7 @@ import { ProviderEditor } from "./components/ProviderEditor";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { BalanceDisplay } from "./components/BalanceDisplay";
 import { SkillsPage } from "./components/SkillsPage";
+import { WorkspacePage } from "./components/WorkspacePage";
 
 const TerminalPage = lazy(() =>
   import("./components/TerminalPage").then((module) => ({
@@ -64,7 +66,8 @@ export default function App() {
     const saved = localStorage.getItem("selected-app");
     return apps.includes(saved as AppId) ? (saved as AppId) : "codex";
   });
-  const [section, setSection] = useState<"providers" | "terminal" | "skills">("providers");
+  const [section, setSection] = useState<Section>("providers");
+  const [workspaceVisited, setWorkspaceVisited] = useState(false);
   const [terminalVisited, setTerminalVisited] = useState(false);
   const [skillsVisited, setSkillsVisited] = useState(false);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
@@ -97,10 +100,11 @@ export default function App() {
     if (value) generation.current++;
   }, []);
 
-  const navigate = useCallback((next: "providers" | "terminal" | "skills") => {
+  const navigate = useCallback((next: Section) => {
     setSection(next);
     if (next === "terminal") setTerminalVisited(true);
     if (next === "skills") setSkillsVisited(true);
+    if (next === "workspace") setWorkspaceVisited(true);
   }, []);
 
   useEffect(() => {
@@ -547,6 +551,9 @@ export default function App() {
           <Suspense fallback={null}>
             {terminalVisited && <TerminalPage />}
           </Suspense>
+        </div>
+        <div className={`tool-page-host ${section === "workspace" ? "active" : ""}`}>
+          {workspaceVisited && <WorkspacePage active={section === "workspace"} />}
         </div>
         <div className={`tool-page-host ${section === "skills" ? "active" : ""}`}>
           {skillsVisited && <SkillsPage />}

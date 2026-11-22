@@ -51,7 +51,9 @@ fn desktop_install(client: Client, dir: &Path) -> bool {
     match client {
         // Both products also distribute a standalone CLI with the same executable name.
         Client::VSCode => {
-            dir.join("bin/code.cmd").is_file() || dir.join("resources/app/product.json").is_file()
+            !dir.join(crate::workspace::MANAGED_MARKER).is_file()
+                && (dir.join("bin/code.cmd").is_file()
+                    || dir.join("resources/app/product.json").is_file())
         }
         Client::Claude => dir.join("resources/app.asar").is_file(),
         Client::ChatGPT => true,

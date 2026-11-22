@@ -65,6 +65,8 @@ async function mockDesktop(
     Object.defineProperty(window, "isTauri", { value: true });
     (window as any).testCalls = calls;
     const runningClients = new Set(["vscode"]);
+    let workspaceInstalled = false;
+    let recentProjects = ["C:\\已有项目"];
     (window as any).runningClients = runningClients;
     (window as any).__TAURI_INTERNALS__ = {
       metadata: {
@@ -76,6 +78,17 @@ async function mockDesktop(
       invoke: async (command: string, args: any) => {
         calls.push({ command, args });
         const app = args?.app;
+        if (command === "workspace_status") return workspaceInstalled;
+        if (command === "recent_workspace_projects") return [...recentProjects];
+        if (command === "plugin:dialog|open") return "C:\\project with spaces";
+        if (command === "install_workspace") {
+          workspaceInstalled = true;
+          return;
+        }
+        if (command === "open_workspace") {
+          if (args.project) recentProjects = [args.project, ...recentProjects.filter(path => path !== args.project)];
+          return;
+        }
         if (command === "running_clients") return [...runningClients];
         if (command === "launch_client") {
           if ((window as any).launchError) throw (window as any).launchError;
@@ -349,6 +362,28 @@ test("skills search results install into the selected client", async ({
   await expect(
     page.locator(".installed-skills").getByText("sample", { exact: true }),
   ).toHaveCount(1);
+});
+
+test("the optional editor installs only on request and opens a window or a project", async ({ page }) => {
+  await page.getByRole("button", { name: "内置 VS Code" }).click();
+  const commands = () => page.evaluate(() => (window as any).testCalls.filter(
+    (call: any) => ["install_workspace", "open_workspace", "launch_client"].includes(call.command)
+  ));
+  await expect(page.getByText(/包含 Codex、Claude Code、Git 版本控制和简体中文语言包/)).toBeVisible();
+  expect(await commands()).toEqual([]);
+  await page.getByRole("button", { name: "安装 VS Code" }).click();
+  await page.getByRole("button", { name: "打开 VS Code" }).click();
+  await page.getByRole("button", { name: "打开项目" }).click();
+  const recent = page.getByRole("region", { name: "最近打开的项目" });
+  await expect(recent.getByRole("button").first()).toContainText("project with spaces");
+  await recent.getByRole("button", { name: /已有项目/ }).click();
+  await expect(recent.getByRole("button").first()).toContainText("已有项目");
+  expect(await commands()).toMatchObject([
+    { command: "install_workspace" },
+    { command: "open_workspace", args: { project: null } },
+    { command: "open_workspace", args: { project: "C:\\project with spaces" } },
+    { command: "open_workspace", args: { project: "C:\\已有项目" } },
+  ]);
 });
 
 test("desktop actions follow the selected page and local app state", async ({

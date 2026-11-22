@@ -15,6 +15,7 @@
 - 从本机导入，获取模型列表，编辑 TOML / JSON 源码，浅色 / 深色主题。
 - 添加配置后默认查询 New API 账号余额 / Key 额度；支持自定义余额脚本、测试查询、刷新间隔与关闭查询。
 - 内置多会话终端，支持选择项目文件夹、跳转工作目录，以及进入 Codex / Claude Code 终端。
+- 可选安装内置 VS Code，一次配好 Codex、Claude Code、Git 和简体中文界面。
 - Skills 管理支持搜索 skills.sh、安装到 Codex 或 Claude Code，以及卸载本机 Skills。
 - 对支持 API 令牌充值接口的服务商显示“充值”，可选择美元金额并展示支付二维码。
 - 当前使用状态按本机实际文件核对，窗口重新获得焦点时刷新。
@@ -69,6 +70,16 @@
 侧栏的“终端”使用本机 PTY 创建多个独立会话。选择文件夹后新会话会以该路径为工作目录，快捷按钮会向当前会话发送 `codex`、`claude` 或目录切换命令。终端会话只在桌面应用运行期间存在。
 
 “Skills 管理”从 skills.sh 搜索公开 Skill，安装时从对应的 GitHub 仓库下载包含 `SKILL.md` 的目录，分别保存到 `~/.codex/skills` 或 `~/.claude/skills`。安装需要本机可用 Git 和网络连接。
+
+### 内置 VS Code
+
+侧栏选择“内置 VS Code”，点击“安装 VS Code”才开始下载。一次安装包括微软官方 Visual Studio Code、Codex、Claude Code、Git 版本控制和微软简体中文语言包。Git 视图由编辑器自带，同时安装便携 Git。首次打开时默认显示简体中文，安装约需下载 1 GB。
+
+安装完成后，点击“打开 VS Code”进入编辑器，或点击“打开项目”选择文件夹。下方“最近打开的项目”会列出内置编辑器的本地文件夹和工作区，点击即可重新打开。右侧栏默认选中 Codex，Claude Code 排在其后。内置编辑器自动信任打开的项目。用户设置、扩展和程序保存在工具配置库下的 `vscode/`，支持 `API_CONFIG_TOOL_HOME`。Codex 和 Claude Code 沿用各自的用户配置和登录流程。
+
+内置编辑器使用独立的简体中文启动配置，默认关闭 Copilot Chat 和欢迎页。升级后请退出所有内置 VS Code 窗口，再从工具打开，以便新进程加载中文。使用编辑器和本地 Git 无需登录微软或 GitHub。
+
+支持 Windows x64 和 macOS 12 及以上的 Intel / Apple Silicon。安装时会校验每个下载包的 SHA-256，中断后再次点击安装会复用已安装的完整组件。版本和来源见[组件清单](src-tauri/workspace/packages.json)。
 
 ### API 令牌充值
 

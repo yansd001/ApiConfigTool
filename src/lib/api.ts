@@ -1,10 +1,11 @@
-import { invoke, isTauri } from "@tauri-apps/api/core";
+import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
 import metadata from "../../package.json";
 export const appVersion = metadata.version;
 
 export const apps = ["codex", "claude", "claude-desktop"] as const;
 export type AppId = (typeof apps)[number];
 export type DesktopClient = "vscode" | "chatgpt" | "claude";
+export type Section = "providers" | "terminal" | "skills" | "workspace";
 export const appNames: Record<AppId, string> = {
   codex: "Codex",
   claude: "Claude Code",
@@ -121,6 +122,15 @@ export const emptyProfile = (): Profile => ({
 });
 export const desktop = isTauri();
 export const api = {
+  workspaceStatus: () => invoke<boolean>("workspace_status"),
+  recentWorkspaceProjects: () => invoke<string[]>("recent_workspace_projects"),
+  installWorkspace: (onProgress: (text: string) => void) => {
+    const progress = new Channel<string>();
+    progress.onmessage = onProgress;
+    return invoke<void>("install_workspace", { progress });
+  },
+  openWorkspace: (project?: string) =>
+    invoke<void>("open_workspace", { project: project || null }),
   runningClients: () => invoke<DesktopClient[]>("running_clients"),
   launchClient: (client: DesktopClient, restart: boolean) =>
     invoke<void>("launch_client", { client, restart }),
