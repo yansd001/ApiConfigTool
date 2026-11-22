@@ -64,6 +64,8 @@ async function mockDesktop(
       );
     Object.defineProperty(window, "isTauri", { value: true });
     (window as any).testCalls = calls;
+    const runningClients = new Set(["vscode"]);
+    (window as any).runningClients = runningClients;
     (window as any).__TAURI_INTERNALS__ = {
       metadata: {
         currentWindow: { label: "main" },
@@ -74,6 +76,12 @@ async function mockDesktop(
       invoke: async (command: string, args: any) => {
         calls.push({ command, args });
         const app = args?.app;
+        if (command === "running_clients") return [...runningClients];
+        if (command === "launch_client") {
+          if ((window as any).launchError) throw (window as any).launchError;
+          runningClients.add(args.client);
+          return;
+        }
         if (command === "list_profiles") return snapshot(app);
         if (command === "fetch_balance") {
           if ((window as any).failBalance)
@@ -341,6 +349,86 @@ test("skills search results install into the selected client", async ({
   await expect(
     page.locator(".installed-skills").getByText("sample", { exact: true }),
   ).toHaveCount(1);
+});
+
+test("desktop actions follow the selected page and local app state", async ({
+  page,
+}) => {
+  const header = page.locator(".page-header");
+  const button = (name: string) =>
+    header.getByRole("button", { name, exact: true });
+  await expect(button("重启 VSCode")).toBeEnabled();
+  await button("打开 ChatGPT").click();
+  await button("重启 ChatGPT").click();
+  expect(
+    await page.evaluate(() =>
+      (window as any).testCalls
+        .filter((entry: any) => entry.command === "launch_client")
+        .map((entry: any) => entry.args),
+    ),
+  ).toEqual([
+    { client: "chatgpt", restart: false },
+    { client: "chatgpt", restart: true },
+  ]);
+  await page.evaluate(() => {
+    (window as any).runningClients.delete("chatgpt");
+    window.dispatchEvent(new Event("focus"));
+  });
+  await expect(button("打开 ChatGPT")).toBeEnabled();
+  await page.getByRole("button", { name: "Claude Code", exact: true }).click();
+  await expect(button("重启 VSCode")).toBeEnabled();
+  await expect(header.getByText("ChatGPT", { exact: false })).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Claude Desktop", exact: true })
+    .click();
+  await expect(header.getByText("VSCode", { exact: false })).toHaveCount(0);
+  await page.evaluate(() => {
+    (window as any).launchError = "未找到 Claude";
+  });
+  await button("打开 Claude").click();
+  await expect(page.getByRole("alert")).toContainText("未找到 Claude");
+  await page.evaluate(() => {
+    (window as any).launchError = "";
+  });
+  await button("打开 Claude").click();
+  await expect(button("重启 Claude")).toBeEnabled();
+});
+
+test("terminal fills available width and resizes the active PTY", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 960, height: 760 });
+  await page.getByRole("button", { name: "终端", exact: true }).click();
+  const columns = () =>
+    page.evaluate(
+      () =>
+        (window as any).testCalls
+          .filter((entry: any) => entry.command === "terminal_resize")
+          .at(-1)?.args.columns ?? 0,
+    );
+  await expect.poll(columns).toBeGreaterThan(0);
+  const narrow = await columns();
+  async function expectFullWidth() {
+    const gap = await page
+      .locator(".terminal-workspace")
+      .evaluate((element) => {
+        const padding = parseFloat(
+          getComputedStyle(element.parentElement!).paddingRight,
+        );
+        return innerWidth - element.getBoundingClientRect().right - padding;
+      });
+    expect(Math.abs(gap)).toBeLessThan(2);
+  }
+  await expectFullWidth();
+  await page.setViewportSize({ width: 1464, height: 804 });
+  await expect.poll(columns).toBeGreaterThan(narrow + 40);
+  await expectFullWidth();
+  const wide = await columns();
+  await page.getByRole("button", { name: "收起侧栏" }).click();
+  await expect.poll(columns).toBeGreaterThan(wide);
+  await page.setViewportSize({ width: 760, height: 580 });
+  await expect.poll(columns).toBeLessThan(wide);
+  await expectFullWidth();
 });
 
 test("terminal navigation opens multiple sessions and preserves them when switching tools", async ({

@@ -279,6 +279,8 @@
 }
 .header-actions {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   align-items: center;
   gap: 9px;
 }
@@ -776,6 +778,8 @@
   font-size: 12px;
 }
 .terminal-page {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
 }
 .terminal-toolbar {
@@ -1101,7 +1105,9 @@
     width: 185px;
   }
   .page-header {
-    padding: 0 20px;
+    height: auto;
+    min-height: 64px;
+    padding: 6px 20px;
   }
   .page-content {
     padding: 28px 22px;

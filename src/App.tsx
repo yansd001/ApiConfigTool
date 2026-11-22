@@ -35,6 +35,7 @@ import {
 } from "./lib/api";
 import { Sidebar } from "./components/shell/Sidebar";
 import { AppPageHeader } from "./components/shell/AppPageHeader";
+import { ClientActions } from "./components/shell/ClientActions";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import {
@@ -75,6 +76,7 @@ export default function App() {
   const [editorTab, setEditorTab] = useState<"basic" | "balance">("basic");
   const [deleting, setDeleting] = useState<Profile | null>(null);
   const [error, setError] = useState("");
+  const [clientError, setClientError] = useState("");
   const [toast, setToast] = useState("");
   const [about, setAbout] = useState(false);
   const [projectLinkError, setProjectLinkError] = useState("");
@@ -225,6 +227,7 @@ export default function App() {
           app={app}
           actions={
             <>
+              <ClientActions app={app} disabled={busy} onError={setClientError} />
               <Button
                 variant="quiet"
                 disabled={busy || loading || !desktop}
@@ -339,6 +342,14 @@ export default function App() {
                 />
               </Button>
             </div>
+            {clientError && (
+              <div className="error-message page-error" role="alert">
+                {clientError}
+                <Button variant="quiet" size="compact" onClick={() => setClientError("")}>
+                  关闭
+                </Button>
+              </div>
+            )}
             {(error || snapshot?.warning) && (
               <div className="error-message page-error" role="alert">
                 {error || snapshot?.warning}

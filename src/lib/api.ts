@@ -4,6 +4,7 @@ export const appVersion = metadata.version;
 
 export const apps = ["codex", "claude", "claude-desktop"] as const;
 export type AppId = (typeof apps)[number];
+export type DesktopClient = "vscode" | "chatgpt" | "claude";
 export const appNames: Record<AppId, string> = {
   codex: "Codex",
   claude: "Claude Code",
@@ -120,6 +121,9 @@ export const emptyProfile = (): Profile => ({
 });
 export const desktop = isTauri();
 export const api = {
+  runningClients: () => invoke<DesktopClient[]>("running_clients"),
+  launchClient: (client: DesktopClient, restart: boolean) =>
+    invoke<void>("launch_client", { client, restart }),
   list: (app: AppId) =>
     desktop
       ? invoke<Snapshot>("list_profiles", { app })

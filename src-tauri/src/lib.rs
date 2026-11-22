@@ -2,6 +2,7 @@ mod account;
 mod balance;
 mod balance_script;
 mod config;
+mod clients;
 mod files;
 mod recharge;
 pub mod skills;
@@ -194,6 +195,8 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            clients::running_clients,
+            clients::launch_client,
             list_profiles,
             save_profile,
             activate_profile,
