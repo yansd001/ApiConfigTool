@@ -15,12 +15,29 @@ pub struct PaymentMethod {
 #[serde(rename_all = "camelCase")]
 pub struct TopUpInfo {
     pub enabled: bool,
+    #[serde(default, alias = "order_management")]
+    pub order_management: bool,
     #[serde(alias = "min_amount")]
     pub min_amount: i64,
     #[serde(alias = "amount_options")]
     pub amount_options: Vec<i64>,
     #[serde(alias = "payment_methods")]
     pub payment_methods: Vec<PaymentMethod>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PendingTopUp {
+    #[serde(alias = "trade_no")]
+    pub trade_no: String,
+    pub amount: i64,
+    pub money: f64,
+    #[serde(alias = "payment_method")]
+    pub payment_method: String,
+    #[serde(alias = "create_time")]
+    pub create_time: i64,
+    #[serde(alias = "expires_at")]
+    pub expires_at: i64,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -127,6 +144,14 @@ pub async fn create_topup(
             .map_err(|_| "无法连接充值接口。".to_string())?,
     )
     .await?;
+    parse_checkout(value, amount, payment_method)
+}
+
+fn parse_checkout(
+    value: Value,
+    fallback_amount: i64,
+    fallback_payment_method: &str,
+) -> Result<Checkout, String> {
     let checkout = value
         .get("checkout")
         .cloned()
@@ -145,13 +170,13 @@ pub async fn create_topup(
         result.amount = order
             .get("amount")
             .and_then(Value::as_i64)
-            .unwrap_or(amount);
+            .unwrap_or(fallback_amount);
     }
     if result.payment_method.is_empty() {
         result.payment_method = order
             .get("payment_method")
             .and_then(Value::as_str)
-            .unwrap_or(payment_method)
+            .unwrap_or(fallback_payment_method)
             .to_owned();
     }
     if result.money <= 0.0 {
@@ -163,13 +188,75 @@ pub async fn create_topup(
     Ok(result)
 }
 
-pub async fn topup_status(profile: &Profile, trade_no: &str) -> Result<String, String> {
+pub async fn topup_orders(profile: &Profile) -> Result<Vec<PendingTopUp>, String> {
+    let (base, key) = credentials(profile)?;
+    let url = base
+        .join("api/usage/topup/orders")
+        .map_err(|_| "充值订单查询地址无效。".to_string())?;
+    let value = response_data(
+        client()?
+            .get(url)
+            .bearer_auth(key)
+            .header("Accept", "application/json")
+            .send()
+            .await
+            .map_err(|_| "无法连接充值订单接口。".to_string())?,
+    )
+    .await?;
+    serde_json::from_value(value.get("orders").cloned().unwrap_or_default())
+        .map_err(|_| "充值接口返回的订单格式无效。".into())
+}
+
+pub async fn resume_topup(profile: &Profile, trade_no: &str) -> Result<Checkout, String> {
+    validate_trade_no(trade_no)?;
+    let (base, key) = credentials(profile)?;
+    let url = base
+        .join(&format!("api/usage/topup/order/{trade_no}/pay"))
+        .map_err(|_| "充值订单地址无效。".to_string())?;
+    let value = response_data(
+        client()?
+            .post(url)
+            .bearer_auth(key)
+            .header("Accept", "application/json")
+            .send()
+            .await
+            .map_err(|_| "无法连接充值接口。".to_string())?,
+    )
+    .await?;
+    parse_checkout(value, 0, "")
+}
+
+pub async fn cancel_topup(profile: &Profile, trade_no: &str) -> Result<(), String> {
+    validate_trade_no(trade_no)?;
+    let (base, key) = credentials(profile)?;
+    let url = base
+        .join(&format!("api/usage/topup/order/{trade_no}/cancel"))
+        .map_err(|_| "充值订单地址无效。".to_string())?;
+    response_data(
+        client()?
+            .post(url)
+            .bearer_auth(key)
+            .header("Accept", "application/json")
+            .send()
+            .await
+            .map_err(|_| "无法连接充值接口。".to_string())?,
+    )
+    .await?;
+    Ok(())
+}
+
+fn validate_trade_no(trade_no: &str) -> Result<(), String> {
     if trade_no.is_empty()
         || trade_no.len() > 100
         || !trade_no.chars().all(|value| value.is_ascii_alphanumeric())
     {
         return Err("充值订单号无效。".into());
     }
+    Ok(())
+}
+
+pub async fn topup_status(profile: &Profile, trade_no: &str) -> Result<String, String> {
+    validate_trade_no(trade_no)?;
     let (base, key) = credentials(profile)?;
     let url = base
         .join(&format!("api/usage/topup/order/{trade_no}"))

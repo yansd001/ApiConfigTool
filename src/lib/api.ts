@@ -62,6 +62,7 @@ export interface PaymentMethod {
 }
 export interface TopUpInfo {
   enabled: boolean;
+  orderManagement: boolean;
   minAmount: number;
   amountOptions: number[];
   paymentMethods: PaymentMethod[];
@@ -75,6 +76,14 @@ export interface Checkout {
   mobilePayUrl?: string;
   qrCode?: string;
   urlScheme?: string;
+}
+export interface PendingTopUp {
+  tradeNo: string;
+  amount: number;
+  money: number;
+  paymentMethod: string;
+  createTime: number;
+  expiresAt: number;
 }
 export interface TerminalSession {
   id: string;
@@ -146,6 +155,12 @@ export const api = {
       amount,
       paymentMethod,
     }),
+  topupOrders: (profile: Profile) =>
+    invoke<PendingTopUp[]>("fetch_topup_orders", { profile }),
+  topupResume: (profile: Profile, tradeNo: string) =>
+    invoke<Checkout>("resume_topup", { profile, tradeNo }),
+  topupCancel: (profile: Profile, tradeNo: string) =>
+    invoke<void>("cancel_topup", { profile, tradeNo }),
   topupStatus: (profile: Profile, tradeNo: string) =>
     invoke<string>("fetch_topup_status", { profile, tradeNo }),
   terminalOpen: (workingDirectory?: string) =>

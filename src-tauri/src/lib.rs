@@ -77,6 +77,26 @@ async fn create_topup(
 }
 
 #[tauri::command]
+async fn fetch_topup_orders(
+    profile: Profile,
+) -> std::result::Result<Vec<recharge::PendingTopUp>, String> {
+    recharge::topup_orders(&profile).await
+}
+
+#[tauri::command]
+async fn resume_topup(
+    profile: Profile,
+    trade_no: String,
+) -> std::result::Result<recharge::Checkout, String> {
+    recharge::resume_topup(&profile, &trade_no).await
+}
+
+#[tauri::command]
+async fn cancel_topup(profile: Profile, trade_no: String) -> std::result::Result<(), String> {
+    recharge::cancel_topup(&profile, &trade_no).await
+}
+
+#[tauri::command]
 async fn fetch_topup_status(
     profile: Profile,
     trade_no: String,
@@ -186,6 +206,9 @@ pub fn run() {
             fetch_balance,
             fetch_topup_info,
             create_topup,
+            fetch_topup_orders,
+            resume_topup,
+            cancel_topup,
             fetch_topup_status,
             terminal::open_terminal,
             terminal::terminal_input,

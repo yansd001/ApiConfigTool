@@ -1285,6 +1285,8 @@
   flex-direction: column;
   gap: 18px;
   padding: 22px 24px 10px;
+  min-height: 0;
+  overflow-y: auto;
 }
 .recharge-amount-input {
   display: flex;
@@ -1353,10 +1355,68 @@
   color: var(--text-3);
   font-size: 11px;
 }
+.checkout-actions,
+.pending-topup-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.pending-topups {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.pending-topups > div:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.pending-topups > div:first-child > span,
+.pending-topup > div:first-child > span {
+  color: var(--text-3);
+  font-size: 11px;
+}
+.pending-topup {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 7px;
+}
+.pending-topup > div:first-child {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+.pending-topup-actions {
+  flex-shrink: 0;
+}
+.pending-topups-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 64px;
+  color: var(--text-3);
+  font-size: 12px;
+}
 .qr-missing {
   padding: 36px 20px;
   color: var(--text-3);
   font-size: 12px;
+}
+@media (max-width: 480px) {
+  .pending-topup {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .pending-topup-actions {
+    justify-content: flex-start;
+  }
 }
 .balance-note {
   display: block;
