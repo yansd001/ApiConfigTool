@@ -78,6 +78,14 @@ async function mockDesktop(
       invoke: async (command: string, args: any) => {
         calls.push({ command, args });
         const app = args?.app;
+        if (command === "check_for_updates") {
+          if ((window as any).checkError) throw (window as any).checkError;
+          return (window as any).updateBuild ?? null;
+        }
+        if (command === "install_update") {
+          if ((window as any).installError) throw (window as any).installError;
+          return;
+        }
         if (command === "workspace_status") return workspaceInstalled;
         if (command === "recent_workspace_projects") return [...recentProjects];
         if (command === "plugin:dialog|open") return "C:\\project with spaces";
@@ -459,11 +467,52 @@ test("terminal fills available width and resizes the active PTY", async ({
   await expect.poll(columns).toBeGreaterThan(narrow + 40);
   await expectFullWidth();
   const wide = await columns();
+  const path = await page.getByLabel("终端工作目录").boundingBox();
+  const actions = await page.getByRole("group", { name: "终端快捷操作" }).boundingBox();
+  expect(actions!.y).toBeGreaterThanOrEqual(path!.y + path!.height);
   await page.getByRole("button", { name: "收起侧栏" }).click();
   await expect.poll(columns).toBeGreaterThan(wide);
   await page.setViewportSize({ width: 760, height: 580 });
   await expect.poll(columns).toBeLessThan(wide);
   await expectFullWidth();
+});
+
+test("CLI updates start in their own terminal tabs", async ({ page }) => {
+  await page.getByRole("button", { name: "终端", exact: true }).click();
+  await expect(page.getByRole("tab", { name: "终端 1" })).toBeVisible();
+  for (const [name, command] of [["Codex", "codex update"], ["Claude Code", "claude update"]]) {
+    await page.getByRole("button", { name: `更新 ${name}`, exact: true }).click();
+    await expect(page.getByRole("tab", { name: `更新 ${name}` })).toHaveAttribute("aria-selected", "true");
+    const calls = await page.evaluate(() => (window as any).testCalls);
+    const input = calls.filter((c: any) => c.command === "terminal_input").at(-1);
+    expect(input.args.data).toBe(command + "\r");
+    await expect.poll(() => page.evaluate(() => (window as any).testCalls
+      .filter((c: any) => c.command === "terminal_resize").at(-1)?.args.id)).toBe(input.args.id);
+  }
+  await expect(page.getByRole("tab", { name: "终端 1" })).toBeVisible();
+});
+
+test("the rolling release is checked automatically and installs only after confirmation", async ({ page }) => {
+  await page.addInitScript(() => { (window as any).updateBuild = 42; });
+  await page.reload();
+  const entry = page.getByRole("button", { name: "版本更新，发现新版" });
+  await expect(entry).toBeVisible();
+  await page.getByRole("button", { name: "收起侧栏" }).click();
+  await entry.click();
+  await expect(page.getByRole("dialog")).toContainText("#42");
+  await page.getByRole("button", { name: "稍后" }).click();
+  const installs = () => page.evaluate(() => (window as any).testCalls
+    .filter((c: any) => c.command === "install_update").map((c: any) => c.args.build));
+  expect(await installs()).toEqual([]);
+  await entry.click();
+  await page.evaluate(() => { (window as any).installError = "更新包完整性校验失败"; });
+  await page.getByRole("button", { name: "更新并重启" }).click();
+  await expect(page.getByRole("alert")).toContainText("完整性校验失败");
+  await page.evaluate(() => { (window as any).installError = null; });
+  await page.getByRole("button", { name: "重新检查" }).click();
+  await page.getByRole("button", { name: "更新并重启" }).click();
+  await expect(page.getByRole("dialog")).toContainText("正在重启");
+  expect(await installs()).toEqual([42, 42]);
 });
 
 test("terminal navigation opens multiple sessions and preserves them when switching tools", async ({

@@ -1,6 +1,7 @@
 import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
 import metadata from "../../package.json";
 export const appVersion = metadata.version;
+export const appBuild = import.meta.env.VITE_APP_BUILD as string | undefined;
 
 export const apps = ["codex", "claude", "claude-desktop"] as const;
 export type AppId = (typeof apps)[number];
@@ -122,6 +123,12 @@ export const emptyProfile = (): Profile => ({
 });
 export const desktop = isTauri();
 export const api = {
+  checkForUpdates: () => invoke<number | null>("check_for_updates"),
+  installUpdate: (build: number, onProgress: (text: string) => void) => {
+    const progress = new Channel<string>();
+    progress.onmessage = onProgress;
+    return invoke<void>("install_update", { build, progress });
+  },
   workspaceStatus: () => invoke<boolean>("workspace_status"),
   recentWorkspaceProjects: () => invoke<string[]>("recent_workspace_projects"),
   installWorkspace: (onProgress: (text: string) => void) => {

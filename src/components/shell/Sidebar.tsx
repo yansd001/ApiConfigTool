@@ -10,7 +10,8 @@ import {
   TerminalSquare,
   PanelsTopLeft,
 } from "lucide-react";
-import { apps, appNames, appVersion, type AppId, type Section } from "@/lib/api";
+import { apps, appNames, type AppId, type Section } from "@/lib/api";
+import { AppUpdate } from "./AppUpdate";
 import { AppGlyph } from "./AppGlyph";
 import { Button } from "@/components/ui/button";
 
@@ -121,7 +122,7 @@ export function Sidebar({
           专注每一次配置切换
         </div>
         <div className="sidebar-footer">
-          <span className="version">v{appVersion}</span>
+          <AppUpdate />
           <Button
             variant="ghost"
             size="icon-compact"

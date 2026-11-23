@@ -3,11 +3,13 @@ mod balance;
 mod balance_script;
 mod config;
 mod clients;
+mod download;
 mod files;
 mod recharge;
 pub mod skills;
 mod store;
 pub mod terminal;
+mod updates;
 mod workspace;
 #[cfg(test)]
 mod tests;
@@ -218,6 +220,8 @@ pub fn run() {
             terminal::terminal_input,
             terminal::terminal_resize,
             terminal::close_terminal,
+            updates::check_for_updates,
+            updates::install_update,
             workspace::workspace_status,
             workspace::recent_workspace_projects,
             workspace::install_workspace,

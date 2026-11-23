@@ -55,6 +55,7 @@ dependencies = [
  "fs2",
  "httpdate",
  "jsonc-parser",
+ "libc",
  "objc2",
  "objc2-app-kit",
  "objc2-foundation",
@@ -62,6 +63,7 @@ dependencies = [
  "reqwest 0.12.28",
  "rquickjs",
  "rusqlite",
+ "self-replace",
  "serde",
  "serde_json",
  "sha2",
@@ -3512,6 +3514,17 @@ dependencies = [
  "rustc-hash",
  "servo_arc 0.5.0",
  "smallvec",
+]
+
+[[package]]
+name = "self-replace"
+version = "1.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "609c5606d9d357b26e4ee1a7a01beac396628d0fa01ebbade2a09cefb88e65af"
+dependencies = [
+ "fastrand",
+ "tempfile",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

@@ -29,21 +29,30 @@ export function TerminalPage() {
   pathRef.current = path;
   tabsRef.current = tabs;
 
-  const create = useCallback(async (directory?: string) => {
-    if (!desktop) return;
-    setError("");
-    try {
-      const session = await api.terminalOpen(
-        directory || pathRef.current || undefined,
-      );
-      const title = `终端 ${nextTitle.current++}`;
-      setTabs((old) => [...old, { ...session, title }]);
-      setActive(session.id);
-      setPath(session.workingDirectory);
-    } catch (reason) {
-      setError(errorText(reason));
-    }
-  }, []);
+  const create = useCallback(
+    async (directory?: string, update?: "Codex" | "Claude Code") => {
+      if (!desktop) return;
+      setError("");
+      try {
+        const session = await api.terminalOpen(
+          directory || pathRef.current || undefined,
+        );
+        const title = update ? `更新 ${update}` : `终端 ${nextTitle.current++}`;
+        setTabs((old) => [...old, { ...session, title }]);
+        setActive(session.id);
+        setPath(session.workingDirectory);
+        if (update) {
+          await api.terminalInput(
+            session.id,
+            update === "Codex" ? "codex update\r" : "claude update\r",
+          );
+        }
+      } catch (reason) {
+        setError(errorText(reason));
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     if (desktop && outputReady && !started.current) {
@@ -115,7 +124,12 @@ export function TerminalPage() {
   }
 
   function enter(command: string) {
-    if (active) void api.terminalInput(active, `${command}\r`);
+    if (!active) return;
+    setError("");
+    terminals.current.get(active)?.terminal.focus();
+    void api
+      .terminalInput(active, `${command}\r`)
+      .catch((reason) => setError(errorText(reason)));
   }
 
   const activeTab = tabs.find((tab) => tab.id === active);
@@ -151,7 +165,11 @@ export function TerminalPage() {
             打开项目文件夹
           </Button>
         </div>
-        <div className="terminal-shortcuts">
+        <div
+          className="terminal-shortcuts"
+          role="group"
+          aria-label="终端快捷操作"
+        >
           <Button
             variant="quiet"
             size="compact"
@@ -183,6 +201,18 @@ export function TerminalPage() {
           >
             跳转到工作目录
           </Button>
+          {(["Codex", "Claude Code"] as const).map((tool) => (
+            <Button
+              key={tool}
+              variant="quiet"
+              size="compact"
+              disabled={!desktop}
+              title={`在新终端中更新 ${tool}`}
+              onClick={() => void create(undefined, tool)}
+            >
+              更新 {tool}
+            </Button>
+          ))}
         </div>
       </div>
       {error && <div className="error-message page-error">{error}</div>}

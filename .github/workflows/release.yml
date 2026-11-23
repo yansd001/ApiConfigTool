@@ -11,6 +11,7 @@ permissions:
 
 env:
   RELEASE_TAG: v1.0
+  VITE_APP_BUILD: ${{ github.run_number }}
 
 concurrency:
   group: release-v1.0
@@ -105,6 +106,21 @@ jobs:
               if (error.status !== 404) throw error;
               await github.rest.git.createRef({ ...context.repo, ref: `refs/${ref}`, sha: context.sha });
             }
+      - name: Compute updater checksums
+        id: updater
+        working-directory: release-assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo 'metadata<<EOF'
+            echo "build=$VITE_APP_BUILD"
+            for asset in ApiConfigTool.exe "ApiConfigTool-macos-arm64-$RELEASE_TAG.zip" "ApiConfigTool-macos-x64-$RELEASE_TAG.zip"; do
+              digest=$(sha256sum "$asset")
+              echo "sha256[$asset]=${digest%% *}"
+            done
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.RELEASE_TAG }}
@@ -119,6 +135,7 @@ jobs:
             固定发布版本 v1.0：每次构建成功后更新此 Release 和同名附件。
             已有 v1.0 标签保持不变，本次构建源码以以下提交为准。
             构建提交：${{ github.sha }}
+            构建号：${{ github.run_number }}
             源码：https://github.com/${{ github.repository }}/tree/${{ github.sha }}
 
             Windows：下载 win-x64 ZIP，解压后只有 ApiConfigTool.exe，需要系统 WebView2 Runtime。
@@ -126,6 +143,10 @@ jobs:
             macOS 构建暂未使用 Apple Developer ID 签名或公证。首次打开可能需要在“系统设置 → 隐私与安全性”允许打开。
 
             支持 API / 官方账号方式切换、默认 New API 余额查询，以及自定义余额脚本。
+
+            <!-- API Config Tool updater
+            ${{ steps.updater.outputs.metadata }}
+            -->
           files: |
             release-assets/*.zip
             release-assets/*.dmg

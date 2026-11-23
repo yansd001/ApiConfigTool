@@ -1,16 +1,13 @@
-use crate::{files, store::Paths};
+use crate::{download::download, files, store::Paths};
 use jsonc_parser::cst::{CstInputValue, CstRootNode};
 use serde::Deserialize;
 use serde_json::json;
-use sha2::{Digest, Sha256};
 use std::{
     collections::HashMap,
-    fs::{self, File},
-    io::Write,
+    fs,
     path::{Path, PathBuf},
     process::{Command, Stdio},
     sync::Arc,
-    time::{Duration, Instant},
 };
 use tauri::{ipc::Channel, State};
 
@@ -373,52 +370,6 @@ fn unpack(archive: &Path, target: &Path, mac_zip: bool) -> Result<()> {
     checked(&mut cmd, "解压工作区组件")
 }
 
-async fn download(
-    package: &Package,
-    path: &Path,
-    name: &str,
-    progress: &Channel<String>,
-) -> Result<()> {
-    let mut response = reqwest::Client::builder()
-        .connect_timeout(Duration::from_secs(20))
-        .read_timeout(Duration::from_secs(90))
-        .build()
-        .map_err(|e| e.to_string())?
-        .get(&package.url)
-        .header("User-Agent", "ApiConfigTool-Workspace")
-        .send()
-        .await
-        .and_then(reqwest::Response::error_for_status)
-        .map_err(|e| format!("下载 {name} 失败：{e}"))?;
-    let total = response.content_length();
-    let mut out = File::create(path).map_err(io_error)?;
-    let mut digest = Sha256::new();
-    let mut size = 0u64;
-    let mut last = Instant::now();
-    while let Some(chunk) = response
-        .chunk()
-        .await
-        .map_err(|_| format!("下载 {name} 中断，请重试。"))?
-    {
-        size += chunk.len() as u64;
-        if size > 1024 * 1024 * 1024 {
-            return Err(format!("{name} 安装包大小异常。"));
-        }
-        out.write_all(&chunk).map_err(io_error)?;
-        digest.update(chunk);
-        if last.elapsed() >= Duration::from_millis(400) {
-            let amount = total
-                .map(|n| format!(" / {} MiB", n.div_ceil(1048576)))
-                .unwrap_or_default();
-            let _ = progress.send(format!("正在下载 {name}，{} MiB{amount}", size / 1048576));
-            last = Instant::now();
-        }
-    }
-    if format!("{:x}", digest.finalize()) != package.sha256 {
-        return Err(format!("{name} 完整性校验失败，请重新下载。"));
-    }
-    Ok(())
-}
 
 #[tauri::command]
 pub fn workspace_status(paths: State<'_, Paths>) -> Result<bool> {
@@ -477,7 +428,8 @@ pub async fn install_workspace(paths: State<'_, Paths>, progress: Channel<String
         }
         let _ = progress.send(format!("正在下载 {title}…"));
         let archive = temp.path().join(format!("{key}.archive"));
-        download(&ws.packages.assets[key], &archive, title, &progress).await?;
+        let package = &ws.packages.assets[key];
+        download(&package.url, &package.sha256, &archive, title, &progress).await?;
         let _ = progress.send(format!("正在解压 {title}…"));
         let extracted = temp.path().join(key);
         fs::create_dir(&extracted).map_err(io_error)?;
@@ -512,7 +464,8 @@ pub async fn install_workspace(paths: State<'_, Paths>, progress: Channel<String
         }
         let _ = progress.send(format!("正在下载 {title}…"));
         let vsix = temp.path().join(format!("{key}.vsix"));
-        download(&ws.packages.assets[key], &vsix, title, &progress).await?;
+        let package = &ws.packages.assets[key];
+        download(&package.url, &package.sha256, &vsix, title, &progress).await?;
         let _ = progress.send(format!("正在安装 {title}…"));
         // Native CLI installation only returns after the editor updates its extension registry.
         let installer = Arc::clone(&ws);

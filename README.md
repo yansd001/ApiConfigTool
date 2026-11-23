@@ -67,7 +67,7 @@
 
 ### 终端和 Skills
 
-侧栏的“终端”使用本机 PTY 创建多个独立会话。选择文件夹后新会话会以该路径为工作目录，快捷按钮会向当前会话发送 `codex`、`claude` 或目录切换命令。终端会话只在桌面应用运行期间存在。
+侧栏的“终端”使用本机 PTY 创建多个独立会话。选择文件夹后新会话会以该路径为工作目录。目录栏下方的快捷按钮可以在当前会话中进入 Codex、进入 Claude 或切换目录。“更新 Codex”和“更新 Claude Code”分别在新终端中运行 `codex update` 和 `claude update`，可直接查看输出并响应提示。
 
 “Skills 管理”从 skills.sh 搜索公开 Skill，安装时从对应的 GitHub 仓库下载包含 `SKILL.md` 的目录，分别保存到 `~/.codex/skills` 或 `~/.claude/skills`。安装需要本机可用 Git 和网络连接。
 
@@ -88,6 +88,8 @@
 ### 下载 macOS 版本
 
 GitHub Releases 固定使用 `v1.0`，每次三个平台构建成功后更新同一 Release 的说明与同名附件，不自动递增版本号。标签仅在不存在时创建，已有标签保持不变，避免本地拉取时发生标签冲突。Release 说明中的构建提交与源码链接对应本次程序，GitHub 自动生成的源码压缩包对应固定标签的提交。应用内部按工具链要求使用 `1.0.0`。
+
+桌面应用启动时会自动检查该 Release 的构建号，左下角显示检查结果。点击版本入口可以重新检查，或选择“更新并重启”。确认后应用下载对应平台的更新包，校验 SHA-256 后替换程序并重启。重启会结束内置终端会话。
 
 发布附件仅提供 ZIP、DMG 和 EXE，工作流会在上传成功后清理该 Release 中其他类型的旧附件。ZIP 解压后只有 Windows 的 `ApiConfigTool.exe` 或 macOS 的 `API Config Tool.app`，不附带 README、docs 或 licenses 文件夹。第三方许可内置于程序，不再单独上传 TXT。GitHub 自动提供的源码下载入口仍会显示。
 
