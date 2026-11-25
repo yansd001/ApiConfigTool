@@ -29,7 +29,6 @@ mod profile;
 struct Package {
     url: String,
     sha256: String,
-    version: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -102,10 +101,9 @@ impl Workspace {
         };
         serde_json::from_slice(&bytes).map_err(|_| "无法读取内置 VS Code 扩展列表。".into())
     }
-    fn extension_ready(&self, installed: &[InstalledExtension], key: &str, id: &str) -> bool {
+    fn extension_ready(&self, installed: &[InstalledExtension], id: &str) -> bool {
         installed.iter().any(|entry| {
             entry.identifier.id.eq_ignore_ascii_case(id)
-                && Some(entry.version.as_str()) == self.packages.assets[key].version.as_deref()
                 && self
                     .root
                     .join("extensions")
@@ -120,7 +118,7 @@ impl Workspace {
             && self.git().is_file()
             && EXTENSIONS
                 .iter()
-                .all(|(key, id, _)| self.extension_ready(&installed, key, id)))
+                .all(|(_, id, _)| self.extension_ready(&installed, id)))
     }
     fn command(&self) -> Command {
         let mut cmd = quiet_command(self.executable());
@@ -161,7 +159,7 @@ impl Workspace {
                 &files::encode(&json!({
                     "git.path": self.git(),
                     "extensions.allowed": {
-                        "*": false, "openai.chatgpt": true, "anthropic.claude-code": true,
+                        "*": true, "openai.chatgpt": true, "anthropic.claude-code": true,
                         "ms-ceintl.vscode-language-pack-zh-hans": true
                     },
                     "extensions.autoUpdate": false,
@@ -185,7 +183,7 @@ impl Workspace {
                 (
                     "extensions.allowed",
                     CstInputValue::Object(vec![
-                        ("*".into(), false.into()),
+                        ("*".into(), true.into()),
                         ("openai.chatgpt".into(), true.into()),
                         ("anthropic.claude-code".into(), true.into()),
                         ("ms-ceintl.vscode-language-pack-zh-hans".into(), true.into()),
@@ -279,7 +277,6 @@ fn set_editor_preferences(path: &Path, settings: &[(&str, CstInputValue)]) -> Re
 #[derive(Deserialize)]
 struct InstalledExtension {
     identifier: Identifier,
-    version: String,
     #[serde(rename = "relativeLocation")]
     relative_location: String,
 }
@@ -301,13 +298,13 @@ mod tests {
         let temp = tempfile::tempdir().unwrap();
         let ws = Workspace::new(&Paths::test(temp.path())).unwrap();
         let settings = ws.root.join("user-data/User/settings.json");
-        files::replace(&settings, b"{\n // Custom setting\n \"editor.fontSize\": 18,\n \"chat.disableAIFeatures\": false,\n}\n").unwrap();
+        files::replace(&settings, b"{\n // Custom setting\n \"editor.fontSize\": 18,\n \"chat.disableAIFeatures\": false,\n \"extensions.allowed\": { \"*\": false },\n}\n").unwrap();
         ws.configure().unwrap();
         let updated = fs::read_to_string(&settings).unwrap();
         assert!(updated.contains("// Custom setting"));
         assert!(updated.contains("\"editor.fontSize\": 18"));
         assert!(updated.contains("\"chat.disableAIFeatures\": true"));
-        assert!(updated.contains("\"*\": false"));
+        assert!(updated.contains("\"*\": true"));
         assert!(updated.contains("\"openai.chatgpt\": true"));
         assert!(updated.contains("\"anthropic.claude-code\": true"));
         assert!(updated.contains("\"ms-ceintl.vscode-language-pack-zh-hans\": true"));
@@ -320,6 +317,42 @@ mod tests {
         );
         ws.configure().unwrap();
         assert_eq!(fs::read_to_string(&settings).unwrap(), updated);
+    }
+
+    #[test]
+    fn updated_bundled_extensions_keep_the_workspace_installed() {
+        let temp = tempfile::tempdir().unwrap();
+        let ws = Workspace::new(&Paths::test(temp.path())).unwrap();
+        fs::create_dir_all(ws.executable().parent().unwrap()).unwrap();
+        fs::write(ws.executable(), []).unwrap();
+        fs::create_dir_all(ws.cli().parent().unwrap()).unwrap();
+        fs::write(ws.cli(), []).unwrap();
+        let git_extension = ws.resources().join("extensions/git");
+        fs::create_dir_all(&git_extension).unwrap();
+        fs::write(git_extension.join("package.json"), "{}").unwrap();
+        fs::create_dir_all(ws.git().parent().unwrap()).unwrap();
+        fs::write(ws.git(), []).unwrap();
+
+        let mut installed = Vec::new();
+        for (key, id, _) in EXTENSIONS {
+            let relative_location = format!("{key}-user-updated");
+            let extension = ws.root.join("extensions").join(&relative_location);
+            fs::create_dir_all(&extension).unwrap();
+            fs::write(extension.join("package.json"), "{}").unwrap();
+            installed.push(json!({
+                "identifier": { "id": id },
+                "version": "user-updated",
+                "relativeLocation": relative_location
+            }));
+        }
+        fs::create_dir_all(ws.root.join("extensions")).unwrap();
+        fs::write(
+            ws.root.join("extensions/extensions.json"),
+            serde_json::to_vec(&installed).unwrap(),
+        )
+        .unwrap();
+
+        assert!(ws.ready().unwrap());
     }
 }
 
@@ -369,7 +402,6 @@ fn unpack(archive: &Path, target: &Path, mac_zip: bool) -> Result<()> {
     };
     checked(&mut cmd, "解压工作区组件")
 }
-
 
 #[tauri::command]
 pub fn workspace_status(paths: State<'_, Paths>) -> Result<bool> {
@@ -459,7 +491,7 @@ pub async fn install_workspace(paths: State<'_, Paths>, progress: Channel<String
     ws.configure()?;
     let installed = ws.installed_extensions()?;
     for (key, id, title) in EXTENSIONS {
-        if ws.extension_ready(&installed, key, id) {
+        if ws.extension_ready(&installed, id) {
             continue;
         }
         let _ = progress.send(format!("正在下载 {title}…"));
@@ -471,7 +503,7 @@ pub async fn install_workspace(paths: State<'_, Paths>, progress: Channel<String
         let installer = Arc::clone(&ws);
         tokio::task::spawn_blocking(move || {
             installer.install_vsix(&vsix)?;
-            if !installer.extension_ready(&installer.installed_extensions()?, key, id) {
+            if !installer.extension_ready(&installer.installed_extensions()?, id) {
                 return Err(format!("内置 VS Code 未能注册 {title}。"));
             }
             Ok::<(), String>(())

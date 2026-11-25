@@ -83,6 +83,8 @@
 
 内置编辑器使用独立的简体中文启动配置，默认关闭 Copilot Chat 和欢迎页。升级后请退出所有内置 VS Code 窗口，再从工具打开，以便新进程加载中文。使用编辑器和本地 Git 无需登录微软或 GitHub。
 
+扩展视图允许自行选择和安装其他扩展。更新 Codex、Claude Code 或语言包后，工具仍会识别已安装的编辑器。
+
 支持 Windows x64 和 macOS 12 及以上的 Intel / Apple Silicon。安装时会校验每个下载包的 SHA-256，中断后再次点击安装会复用已安装的完整组件。版本和来源见[组件清单](src-tauri/workspace/packages.json)。
 
 ### API 令牌充值
